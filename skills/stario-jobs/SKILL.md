@@ -151,11 +151,12 @@ from .data import Jobs
 
 
 async def drop_finished_forever(app: App, jobs: Jobs, interval: float) -> None:
+    shutdown = app.shutdown
     while not app.shutting_down:
         for job in list(jobs.rows.values()):
             if job.status in ("done", "failed"):
                 del jobs.rows[job.id]
-        await asyncio.wait({app.shutdown}, timeout=interval)
+        await asyncio.wait({shutdown}, timeout=interval)
 ```
 
 ```python
@@ -164,9 +165,10 @@ app.create_task(drop_finished_forever(app, jobs, 600), name="jobs.drop_finished"
 ```
 
 - `asyncio.wait` returns after `interval`, or at once when shutdown starts. It does not cancel `app.shutdown`.
+- Read `app.shutdown` once, before the loop. Each read makes a new shield, and each pending shield keeps a callback on the app's future until shutdown.
 - Never end a pass with `asyncio.sleep(interval)`. The drain then waits up to one interval, and after 5 s it cancels the loop.
 - The loop finishes its current pass, then stops at the `while` check.
-- A loop that waits on a queue or an event needs a timeout too. Shutdown does not wake it.
+- A loop that waits on a queue or an event waits on `shutdown` too: `asyncio.wait({event_wait, shutdown}, timeout=...)`. Clear the event after the wait, so a set that comes during a pass is not lost.
 - In a handler, use `c.alive()` instead.
 - The `server.shutdown` span gets one `server.shutdown.task_cancelled` event, with `task.name`, for each task that the drain cancels (stario 5.3.2). Give the loop a `name`. A test checks that the loop stops in time:
 
