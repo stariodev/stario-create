@@ -4,6 +4,18 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.9.1
+
+### Changed
+
+- A timer loop ends each pass with `await asyncio.wait({app.shutdown},
+  timeout=interval)`, never `asyncio.sleep`. The loop then stops at once
+  when shutdown starts. The guide has the rule, the `stario-jobs` skill has
+  the pattern and a test, and `stario-api` lists `app.shutdown`.
+- `stario-jobs` shows the `server.shutdown.task_cancelled` event from
+  stario 5.3.2: give each loop a `name`, and a test checks that no loop is
+  cancelled.
+
 ## 5.9.0
 
 ### Changed
