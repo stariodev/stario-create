@@ -5,7 +5,7 @@ description: A live Stario page on state in memory, or a command that tells only
 
 # Relay: state in memory and messages to one tab
 
-`AGENTS.md` holds the rules. Load `stario-api` for every signature. Rows in SQLite with no message to one tab use `db.watch` (skill `stario-feature`), not this skill.
+`AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. Rows in SQLite with no message to one tab use `db.watch` (skill `stario-feature`), not this skill.
 
 One `Relay[dict]` per app, built in `bootstrap`, shared by every page. Two kinds of subject:
 

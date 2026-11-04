@@ -30,7 +30,7 @@ def _compile_dir(root: Path) -> list[str]:
 
 def test_justfile_template_lists_recipes():
     text = template("justfile").read_text()
-    for name in ("dev", "serve", "check", "fix", "test", "sync"):
+    for name in ("dev", "serve", "check", "ci", "test *args", "sync"):
         assert f"\n{name}:" in text
     assert "set dotenv-load := true" in text
     assert "uv run watchfiles" in text
@@ -209,7 +209,7 @@ def test_cli_sync_check_detects_stale_skill(tmp_path: Path):
 def test_cli_sync_check_flags_a_guide_over_the_rule_limit(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     guide = tmp_path / "AGENTS.md"
-    guide.write_text(guide.read_text() + "x" * 8_000 + "\n")
+    guide.write_text(guide.read_text() + "x" * 10_000 + "\n")
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "rule loaders cut at 16000" in out.stdout

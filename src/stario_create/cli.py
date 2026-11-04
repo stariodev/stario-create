@@ -67,6 +67,9 @@ def cmd_new(args: argparse.Namespace) -> int:
         _run(["uv", "init", "--app", "--no-package", "--python", "3.14", str(dest)], dest)
     if (dest / "main.py").exists():
         (dest / "main.py").unlink()
+    # requires-python pins 3.14 for uv. A .python-version also steers pyenv's
+    # shims, and a bare `python3` then fails where pyenv has no 3.14.
+    (dest / ".python-version").unlink(missing_ok=True)
     _run(["uv", "add", STARIO_REQ, *(["orjson>=3.13.0"] if args.orjson else [])], dest)
     _run(["uv", "add", "--dev", *DEV_REQS], dest)
 

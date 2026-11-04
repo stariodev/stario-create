@@ -1,6 +1,6 @@
 ---
 name: stario-api
-description: Every Stario signature on one page - App, Route, Context, Writer, Relay, Span, middleware, h.* tags, TestClient, data.*, at.*, read_signals, SSE, and how a morph treats the page. Load it before you write any handler, view, or test in a Stario app, and never read the stario source in site-packages instead.
+description: Every Stario signature on one page - App, Route, Context, Writer, Relay, Span, middleware, h.* tags, TestClient, data.*, at.*, read_signals, SSE, and how a morph treats the page. Look a name up here when the task skill and the code do not show it, and never read the stario source in site-packages instead.
 ---
 
 # The Stario API
