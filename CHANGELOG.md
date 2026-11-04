@@ -4,6 +4,16 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.9.2
+
+### Changed
+
+- The timer loop in `stario-jobs` reads `app.shutdown` once, before the
+  loop. Each read makes a new shield, and a pending shield keeps a callback
+  on the app's future, so one read per pass grows without bound.
+- A loop that waits on an event waits on `shutdown` too, and clears the
+  event after the wait.
+
 ## 5.9.1
 
 ### Changed
