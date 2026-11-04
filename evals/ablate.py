@@ -5,6 +5,7 @@ guide bytes the agent loaded (skill tool + read of a SKILL.md), and source dives
 Quality: `just check` passes, plus the drift that the guide forbids.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -21,7 +22,7 @@ def tool_calls(run: Path) -> list[tuple[str, dict, int]]:
     """(name, arguments, characters of the tool result) for each call."""
     try:
         d = json.loads((run / ".eval-transcript.md").read_text())
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return []
     out = []
     for s in d.get("steps") or d.get("trajectory") or []:
@@ -30,7 +31,9 @@ def tool_calls(run: Path) -> list[tuple[str, dict, int]]:
             for r in (s.get("observation") or {}).get("results") or []
         }
         for tc in s.get("tool_calls") or []:
-            name = tc.get("function_name") or tc.get("name") or (tc.get("function") or {}).get("name")
+            name = (
+                tc.get("function_name") or tc.get("name") or (tc.get("function") or {}).get("name")
+            )
             args = tc.get("arguments") or (tc.get("function") or {}).get("arguments") or {}
             if isinstance(args, str):
                 try:
@@ -38,7 +41,11 @@ def tool_calls(run: Path) -> list[tuple[str, dict, int]]:
                 except json.JSONDecodeError:
                     args = {"raw": args}
             out.append(
-                (name or "?", args if isinstance(args, dict) else {}, sizes.get(tc.get("tool_call_id"), 0))
+                (
+                    name or "?",
+                    args if isinstance(args, dict) else {},
+                    sizes.get(tc.get("tool_call_id"), 0),
+                )
             )
     return out
 
@@ -46,10 +53,8 @@ def tool_calls(run: Path) -> list[tuple[str, dict, int]]:
 def measure(run: Path) -> dict:
     c = json.loads((run / ".eval-check.json").read_text())
     fm = {}
-    try:
+    with contextlib.suppress(OSError, json.JSONDecodeError):
         fm = json.loads((run / ".eval-transcript.md").read_text()).get("final_metrics") or {}
-    except (OSError, json.JSONDecodeError):
-        pass
     calls = tool_calls(run)
     guide_kb = 0
     skills_used = []
@@ -89,7 +94,9 @@ def measure(run: Path) -> dict:
         "sec": c.get("seconds"),
         "steps": fm.get("total_steps"),
         "ktok": round(fm.get("total_prompt_tokens", 0) / 1000),
-        "kuncached": round((fm.get("total_prompt_tokens", 0) - fm.get("total_cached_tokens", 0)) / 1000),
+        "kuncached": round(
+            (fm.get("total_prompt_tokens", 0) - fm.get("total_cached_tokens", 0)) / 1000
+        ),
         "kout": round(fm.get("total_completion_tokens", 0) / 1000, 1),
         "calls": len(calls),
         "guide_kb": round(guide_kb / 1000),
@@ -108,7 +115,7 @@ for f in sorted(root.glob("*/.eval-check.json")):
         continue
     try:
         runs[(m.group(1), m.group(2))].append(measure(f.parent) | {"n": int(m.group(3))})
-    except (json.JSONDecodeError, KeyError):
+    except json.JSONDecodeError, KeyError:
         print("broken", f.parent.name, file=sys.stderr)
 
 if "--runs" in sys.argv:
@@ -124,15 +131,17 @@ if "--runs" in sys.argv:
 
 med = statistics.median
 print("per variant, over all tasks (median of per-task medians for cost; counts for quality)")
-print(f"{'variant':7} {'runs':>4} {'ok':>5} {'drift':>5} {'sec':>5} {'steps':>5} {'ktok':>6} {'unc':>5} {'out':>5} {'gkb':>4} {'dives':>5}")
+print(
+    f"{'variant':7} {'runs':>4} {'ok':>5} {'drift':>5} {'sec':>5} {'steps':>5} {'ktok':>6} {'unc':>5} {'out':>5} {'gkb':>4} {'dives':>5}"
+)
 for v in VARIANTS:
     per_task = [rs for (vv, _), rs in runs.items() if vv == v]
     allr = [r for rs in per_task for r in rs]
     if not allr:
         continue
 
-    def m(key: str) -> float:
-        return med(med(r[key] or 0 for r in rs) for rs in per_task)
+    def m(key: str, tasks: list = per_task) -> float:
+        return med(med(r[key] or 0 for r in rs) for rs in tasks)
 
     print(
         f"{v:7} {len(allr):>4} {sum(bool(r['ok']) for r in allr):>2}/{len(allr):<2} "
