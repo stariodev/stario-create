@@ -4,6 +4,16 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.9.3
+
+### Changed
+
+- New apps need stario 5.3.3. Its `server.shutdown` span names each
+  cancelled task, which the test in `stario-jobs` checks, and its
+  `c.alive()` and `app.shutdown` leave no callback behind.
+- The API profile guide reads `app.shutdown` once per timer loop, like the
+  `stario-jobs` skill. `stario-api` says the same.
+
 ## 5.9.2
 
 ### Changed

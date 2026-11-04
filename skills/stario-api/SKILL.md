@@ -26,7 +26,7 @@ app.add(ROUTE, handler)                 # one method on one path
 app.use("/prefix", middleware)          # middleware is (inner: Handler) -> Handler
 app.create_task(coro, name=None)        # tracked; Stario waits for it on shutdown
 app.shutting_down                       # True while the server drains
-app.shutdown  # timer loops wait on it
+app.shutdown  # a timer loop reads it once
 
 ROUTE = Route("GET /rooms/{room_id}")
 ROUTE.href(room_id, query={"sort": "title"}, fragment=None)   # "/rooms/7?sort=title"
