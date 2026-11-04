@@ -326,10 +326,19 @@ def test_cli_sync_check_flags_ignored_files(tmp_path: Path):
 
 
 def test_cli_sync_check_flags_justfile_without_pytest(tmp_path: Path):
-    (tmp_path / "justfile").write_text("check:\n    uv run ruff check .\n    uv run pyright\n")
+    (tmp_path / "justfile").write_text(
+        "check:\n    uv run ruff check .\n    uv run pyrefly check\n"
+    )
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "justfile (check does not run pytest)" in out.stdout
+
+
+def test_cli_sync_check_flags_justfile_with_pyright(tmp_path: Path):
+    (tmp_path / "justfile").write_text("check:\n    uv run pyright\n    uv run pytest -q\n")
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "justfile (check runs pyright; run `uv run pyrefly check`)" in out.stdout
 
 
 def test_tailwind_recipe_parses(tmp_path: Path):

@@ -19,7 +19,7 @@ from string import Template
 from stario_create.data import guide_text, profile_skills, resource, skill_names, template
 
 STARIO_REQ = "stario>=5.2,<6"
-DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
+DEV_REQS = ["ruff", "pyrefly", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _THIS_APP = "\n## This app"
@@ -179,7 +179,8 @@ def _append_once(path: Path, line: str, created: list[str]) -> None:
 def _append_pyproject_extras(path: Path, created: list[str]) -> None:
     if not path.exists():
         return
-    if "[tool.pyright]" in path.read_text():
+    text = path.read_text()
+    if "[tool.pyrefly]" in text or "[tool.pyright]" in text:
         return
     with path.open("a") as f:
         f.write(template("pyproject_extras.toml").read_text())
@@ -311,11 +312,11 @@ def _git_ignored(root: Path, skills: Iterable[str]) -> list[str]:
     return [f"{rel} (ignored by git)" for rel in ignored]
 
 
-def _check_recipe_runs_pytest(root: Path) -> bool:
-    """False when root/justfile exists and its `check` recipe has no pytest."""
+def _check_recipe(root: Path) -> list[str] | None:
+    """The lines of the `check` recipe in root/justfile, or None without a justfile."""
     path = root / "justfile"
     if not path.is_file():
-        return True
+        return None
     body: list[str] | None = None
     for line in path.read_text().splitlines():
         if body is not None:
@@ -324,7 +325,7 @@ def _check_recipe_runs_pytest(root: Path) -> bool:
             body.append(line)
         elif line.startswith("check:"):
             body = []
-    return body is not None and any("pytest" in line for line in body)
+    return body or []
 
 
 def notes_warning(root: Path) -> str | None:
@@ -381,6 +382,10 @@ def stale_files(root: Path) -> list[str]:
         ):
             stale.append(f".claude/skills/{name}")
     stale.extend(_git_ignored(root, wanted))
-    if not _check_recipe_runs_pytest(root):
-        stale.append("justfile (check does not run pytest)")
+    check = _check_recipe(root)
+    if check is not None:
+        if not any("pytest" in line for line in check):
+            stale.append("justfile (check does not run pytest)")
+        if any("pyright" in line for line in check):
+            stale.append("justfile (check runs pyright; run `uv run pyrefly check`)")
     return stale

@@ -86,7 +86,7 @@ def test_guide_sends_only_what_a_person_must_see_to_a_browser():
     assert "stario-browser-check" in text
     assert "No computer use." in text
     assert "Playwright" not in text
-    assert "pyright checks each call" in text
+    assert "pyrefly checks each call" in text
 
 
 def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():

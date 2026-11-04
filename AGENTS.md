@@ -130,7 +130,7 @@ A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=
 
 ## Checks
 
-Check what you changed, at the cost the change needs. A handler, a query, or a stream gets a `TestClient` test. A style gets `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyright checks each call. Read their source only when pyright or a test fails. Run `just check` after a Python change and before a push.
+Check what you changed, at the cost the change needs. A handler, a query, or a stream gets a `TestClient` test. A style gets `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyrefly checks each call. Read their source only when pyrefly or a test fails. Run `just check` after a Python change and before a push.
 
 `tests/test_pages.py` checks each linked page for an action with no route, an undefined `$signal`, a stream that changes its element, and a `<dialog>` that closes. A browser is only for client JS that holds state, or a bug that the HTML does not show. No computer use. When the user watches the app, the user is the browser: say what to look at. When it does not work: `curl` their server, then a failing test (skill `stario-browser-check`).
 

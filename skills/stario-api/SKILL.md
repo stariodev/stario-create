@@ -5,7 +5,7 @@ description: Every Stario signature on one page - App, Route, Context, Writer, R
 
 # The Stario API
 
-Every signature of stario 5.x. Do not read `site-packages`: pyright checks each call.
+Every signature of stario 5.x. Do not read `site-packages`: pyrefly checks each call.
 
 ```python
 from stario import App, Context, Relay, Route, Span, Writer, classes, h

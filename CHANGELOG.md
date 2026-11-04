@@ -4,6 +4,17 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.9.0
+
+### Changed
+
+- New apps check types with pyrefly instead of pyright. The justfile runs
+  `uv run pyrefly check`, the dev dependencies list `pyrefly`, and
+  `pyproject.toml` gets a `[tool.pyrefly]` table. pyrefly passes more of
+  the typing conformance suite than pyright and runs in under a second.
+- The guide and the skills say pyrefly.
+- `sync --check` flags a justfile whose `check` recipe still runs pyright.
+
 ## 5.8.0
 
 ### Changed
