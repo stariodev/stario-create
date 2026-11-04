@@ -1,6 +1,6 @@
 ---
 name: stario-jobs
-description: Slow work in a Stario app - a report, a model call, a download, an import - as a job that a command queues and a task runs while the page shows queued, running, and done. Use when a button starts work that takes seconds, when several jobs may run at once, when the page must update by itself while the work runs, or when a job must stop cleanly on shutdown or survive a restart.
+description: Slow work in a Stario app - a report, a model call, a download, an import - as a job that a command queues and a task runs while the page shows queued, running, and done. Use when a button starts work that takes seconds, when several jobs may run at once, when the page must update by itself while the work runs, when a job must stop cleanly on shutdown or survive a restart, or when a loop runs on a timer.
 ---
 
 # Slow work as a job
@@ -136,6 +136,47 @@ ReportsPage(Jobs(), relay, config.report_delay).register(app)
 - A job with several steps passes `c.app` to `run`, checks `app.shutting_down` between the steps, and stops early.
 - Several jobs run at once: each click is its own task.
 - A message to the tab that started the job (a toast when it fails): skill `stario-relay`, A message after the work.
+
+## A loop on a timer
+
+Work that runs every few seconds or minutes with no click: a sweep, a poll, a cleanup. `bootstrap` starts the loop. Each pass ends with a wait on `app.shutdown`.
+
+```python
+# app/cleanup.py
+import asyncio
+
+from stario import App
+
+from .data import Jobs
+
+
+async def drop_finished_forever(app: App, jobs: Jobs, interval: float) -> None:
+    while not app.shutting_down:
+        for job in list(jobs.rows.values()):
+            if job.status in ("done", "failed"):
+                del jobs.rows[job.id]
+        await asyncio.wait({app.shutdown}, timeout=interval)
+```
+
+```python
+# app/main.py, inside bootstrap before yield
+app.create_task(drop_finished_forever(app, jobs, 600), name="jobs.drop_finished")
+```
+
+- `asyncio.wait` returns after `interval`, or at once when shutdown starts. It does not cancel `app.shutdown`.
+- Never end a pass with `asyncio.sleep(interval)`. The drain then waits up to one interval, and after 5 s it cancels the loop.
+- The loop finishes its current pass, then stops at the `while` check.
+- A loop that waits on a queue or an event needs a timeout too. Shutdown does not wake it.
+- In a handler, use `c.alive()` instead.
+- The `server.shutdown` span gets one `server.shutdown.task_cancelled` event, with `task.name`, for each task that the drain cancels (stario 5.3.2). Give the loop a `name`. A test checks that the loop stops in time:
+
+```python
+async def test_loops_stop_on_shutdown():
+    async with TestClient(bootstrap) as client:
+        pass
+    shutdown = client.tracer.find_span("server.shutdown")
+    assert not client.tracer.get_events(shutdown.id, name="server.shutdown.task_cancelled")
+```
 
 ## Tests
 

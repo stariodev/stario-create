@@ -14,7 +14,7 @@ The skills are in `.agents/skills/`. Load `stario-api` before you write a handle
 - A page that every tab sees change, in SQLite: `stario-feature` and `stario-litewriter`.
 - State in memory, a message to one tab, an edit dialog: `stario-relay`.
 - A sort, a filter, paging, a search as you type: `stario-view`.
-- Work that takes seconds: `stario-jobs`.
+- Work that takes seconds, or a loop on a timer: `stario-jobs`.
 - Login and accounts: `stario-auth`. Styles: `stario-tailwind-daisyui`. JavaScript: `stario-client`.
 - Before a browser or a screenshot: `stario-browser-check`.
 
@@ -45,7 +45,7 @@ tests/test_<page>.py
 - `bootstrap(app, span)` is an async generator with one `yield`: build shared objects, register pages, `yield`, clean up. Keep `app.use("/", same_origin(), security_headers())`.
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})` builds the link. No `url_for`, no `app.get`.
-- A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`, never bare `asyncio.create_task`.
+- A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`, never bare `asyncio.create_task`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - Shared state is an object built in `bootstrap`. No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 
 ## A page is a resource
