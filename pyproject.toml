@@ -1,6 +1,6 @@
 [project]
 name = "stario-create"
-version = "5.8.0"
+version = "5.9.0"
 description = "Create a Stario app and keep its guide and skills in sync."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -46,7 +46,7 @@ packages = ["src/stario_create"]
 
 [dependency-groups]
 dev = [
-    "pyright>=1.1.403",
+    "pyrefly>=1.4",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.12.8",
@@ -63,13 +63,10 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-pythonVersion = "3.14"
-include = ["src", "tests"]
-exclude = ["src/stario_create/templates"]
-strict = ["src"]
+[tool.pyrefly]
+python-version = "3.14"
+project-includes = ["src", "tests"]
+project-excludes = ["src/stario_create/templates", "**/.venv", "**/__pycache__"]
 
 [tool.ruff]
 target-version = "py314"

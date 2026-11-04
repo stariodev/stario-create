@@ -11,9 +11,9 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
-[tool.pyright]
-pythonVersion = "3.14"
-include = ["app", "tests"]
+[tool.pyrefly]
+python-version = "3.14"
+project-includes = ["app", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

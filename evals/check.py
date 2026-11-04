@@ -48,7 +48,7 @@ steps = {}
 for name, cmd in [
     ("ruff", "uv run ruff check ."),
     ("format", "uv run ruff format --check ."),
-    ("pyright", "uv run pyright"),
+    ("pyrefly", "uv run pyrefly check"),
     ("pytest", "uv run pytest -q"),
 ]:
     p = subprocess.run(cmd, shell=True, cwd=run, capture_output=True, text=True, timeout=600)

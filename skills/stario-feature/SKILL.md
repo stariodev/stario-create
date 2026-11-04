@@ -239,7 +239,7 @@ A test asserts `"window.location" in r.text`.
 
 1. Delete `app/features/<page>/` and `tests/test_<page>.py`.
 2. Remove the `register` call and the schema call from `app/main.py`.
-3. Fix every import of the deleted `urls.py` or `data.py`. Pyright finds them.
+3. Fix every import of the deleted `urls.py` or `data.py`. Pyrefly finds them.
 4. Tables the page owned: ask the developer whether to drop them.
 5. `just check`.
 

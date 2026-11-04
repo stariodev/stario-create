@@ -2,7 +2,7 @@
 
 Which guide+skills variant makes a headless agent build the better app:
 scaffold a base app, install a variant's `AGENTS.md` and `skills/`, run one
-`devin -p` task, score the result with `check.py` (ruff/format/pyright/pytest
+`devin -p` task, score the result with `check.py` (ruff/format/pyrefly/pytest
 plus structure rubric). Runs live under `$EVAL_DIR` (default /tmp/stario-eval).
 
 ```sh
