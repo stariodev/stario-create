@@ -1,30 +1,19 @@
-"""The page check: what a browser would show wrong, read from the server HTML.
+"""The page check: each HTML page that a link or a GET route in urls.py reaches.
 
-It opens `/`, follows every local link, and checks each page:
-
-- each `@get(...)` or `@post(...)` URL has a route;
-- each `$signal` an expression reads is defined on the page;
-- an element that opens a stream keeps its opening tag in the stream, so
-  `data.init` does not run again;
-- each `<dialog>` keeps `open` through a repaint;
-- no two elements share an `id`.
-
-It sees each page as a new app shows it. Markup that only rows make (a
-Rename button in each row) needs data first: a page test adds rows, then
-calls `assert not await check(client, url)`.
-
-Add a page that no link reaches to EXTRA.
+It needs no edit. A page test with rows calls `assert not await check(client, url)`.
 """
 
+import importlib
 import json
 import re
 from html import unescape
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from stario import Route
 
-EXTRA: tuple[str, ...] = ()
+FEATURES = Path(__file__).parent.parent / "app" / "features"
 LIMIT = 50
 
 ACTION = re.compile(r"@(get|post|put|patch|delete)\(\s*'([^']*)'")
@@ -143,8 +132,22 @@ async def check(client, url: str) -> list[str]:
     return problems(client, url, page) + await stream_problems(client, url, page)
 
 
+async def html_routes(client) -> list[str]:
+    """Each GET route with no path parameter in app/features/*/urls.py that answers HTML."""
+    found = []
+    for path in sorted(FEATURES.glob("*/urls.py")):
+        urls = importlib.import_module(f"app.features.{path.parent.name}.urls")
+        for route in vars(urls).values():
+            if not isinstance(route, Route) or route.method != "GET" or "{" in route.target:
+                continue
+            async with client.stream("GET", route.href(), timeout=2) as r:
+                if r.status_code == 200 and "text/html" in r.headers.get("content-type", ""):
+                    found.append(route.href())
+    return found
+
+
 async def test_every_page_checks_out(client):
-    queue, seen, found = ["/", *EXTRA], set(), []
+    queue, seen, found = ["/", *await html_routes(client)], set(), []
     while queue and len(seen) < LIMIT:
         url = queue.pop(0)
         if url in seen:

@@ -5,15 +5,15 @@ description: Add a live page to a Stario app - a list or board in SQLite that ev
 
 # Add a live page
 
-`AGENTS.md` holds the rules. Load `stario-api` with this skill for every signature. Do not read `site-packages`. To change a page, read its folder first.
+`AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. To change a page, read its folder first.
 
 ## Steps
 
 1. Decide the resource. The path names it: `/todos`, `/rooms/{room_id}`. One folder `app/features/<page>/`, named after the URL noun.
 2. Decide the stream source. Rows in SQLite: `db.watch` (this skill). State in memory, or a message to one tab: skill `stario-relay`. Ask the developer before you add a database.
 3. Write `__init__.py`, `urls.py`, `views.py`, `handlers.py`, and `data.py` when the page owns state.
-4. In `app/main.py`, build the shared objects once, then call `TodosPage(db).register(app)` before `yield`. Add the schema function of the page to `schema(tx)`.
-5. Link from another page through its `urls.py`: `TODOS.href()`.
+4. In `app/main.py`, build the shared objects, then add `TodosPage(db).register(app)` under `# pages`. Add the schema function of the page to `schema(tx)`.
+5. Add `(TODOS, "Todos")` to `LINKS` in `app/features/home/views.py`.
 6. Write `tests/test_<page>.py`, then run `just check`. Fix every failure.
 
 ## A live page

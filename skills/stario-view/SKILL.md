@@ -5,7 +5,7 @@ description: Choose what one tab of a Stario page sees - a sort, a filter, pagin
 
 # A view in the URL, and search as you type
 
-`AGENTS.md` holds the rules. Skill `stario-feature` has the live page that this skill extends. Load `stario-api` for every signature.
+`AGENTS.md` holds the rules. Skill `stario-feature` has the live page that this skill extends. Look up a name in `stario-api` only when this skill and the code do not show it.
 
 Two kinds of "what this tab sees":
 

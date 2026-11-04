@@ -12,6 +12,7 @@ async def bootstrap(app: App, span: Span):
 $codec    config = Config.from_env()
     app.use("/", same_origin(), security_headers())
     span.attrs(await ASSETS.attach(app))
+    # pages: one register line each
     HomePage(config.app_name).register(app)
     yield
 

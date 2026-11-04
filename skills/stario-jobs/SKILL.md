@@ -5,7 +5,7 @@ description: Slow work in a Stario app - a report, a model call, a download, an 
 
 # Slow work as a job
 
-`AGENTS.md` holds the rules. Load `stario-api` for every signature. The page is a live page on a `Relay` (skill `stario-relay`): the command queues a job and replies at once. A task does the work inside its own span and publishes each status change. The `queued` row is the click feedback.
+`AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. The page is a live page on a `Relay` (skill `stario-relay`): the command queues a job and replies at once. A task does the work inside its own span and publishes each status change. The `queued` row is the click feedback.
 
 ```python
 # data.py

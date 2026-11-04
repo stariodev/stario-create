@@ -4,6 +4,29 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.10.0
+
+### Changed
+
+- The guide is 6.4 KB, down from 9.0 KB. Its last section is no longer named
+  in the intro, so a search for `## This app` finds the section and not the
+  whole file. It adds two rules: change a file with the Edit tool and run
+  Python as `uv run python`, and start a bug fix with a test that fails.
+- `stario-api` is a lookup. The guide and the recipe skills no longer tell
+  the agent to load it for every signature; pyrefly checks each call.
+- `just check` formats and fixes lint first, then prints only problems.
+  `just ci` runs the same checks without changes. `just test` takes pytest
+  arguments.
+- New apps have no `.python-version`. `requires-python` pins 3.14 for uv,
+  and a pyenv shim no longer breaks a bare `python3`.
+- `Config` has one field with a default per setting; `from_env` reads each
+  field from the env var of the same name. The home page links to each page
+  in `LINKS`, and `main.py` marks the register lines with `# pages`.
+- `tests/test_pages.py` finds each page from the `GET` routes in each
+  `urls.py`, so it needs no `EXTRA` list.
+- New apps ignore E501 (ruff format owns the line length) and set the
+  pytest-asyncio fixture loop scope, so a test run prints no warning.
+
 ## 5.9.3
 
 ### Changed

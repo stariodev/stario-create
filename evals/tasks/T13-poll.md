@@ -1,0 +1,1 @@
+Add a poll at /poll. Anyone can add an option and vote for an option. Show each option with its vote count, highest first. Every open browser tab must show the change right away, without a reload. Keep the poll in SQLite so it survives a restart. Add a link to /poll from the home page.
