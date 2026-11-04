@@ -19,10 +19,11 @@ mkdir -p "$root/runs"
 rm -rf "$dir"
 cp -R "$root/${BASE:-evalapp}" "$dir"
 cd "$dir"
-cp "$vsrc/AGENTS.md" AGENTS.md
-rm -rf .agents/skills && mkdir -p .agents && cp -R "$vsrc/skills" .agents/skills
-rm -rf .claude/skills && mkdir -p .claude/skills
-for s in .agents/skills/*; do ln -s "../../.agents/skills/$(basename "$s")" ".claude/skills/$(basename "$s")"; done
+rm -f AGENTS.md
+[ -f "$vsrc/AGENTS.md" ] && cp "$vsrc/AGENTS.md" AGENTS.md
+rm -rf .agents/skills .claude/skills .cursor/skills && mkdir -p .agents/skills .claude/skills
+[ -d "$vsrc/skills" ] && cp -R "$vsrc/skills/." .agents/skills/
+for s in .agents/skills/*; do [ -e "$s" ] && ln -s "../../.agents/skills/$(basename "$s")" ".claude/skills/$(basename "$s")"; done
 git add -A && git commit -qm "variant $variant" --allow-empty
 uv sync -q >/dev/null 2>&1 || true
 prompt="$(cat "$here/tasks/$task.md")"
