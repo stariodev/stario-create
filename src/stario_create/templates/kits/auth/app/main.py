@@ -3,6 +3,7 @@ import uuid
 
 from litewriter import LiteWriter, Tx
 from stario import App, Span, serve
+from stario.cookies import SignedCookie
 from stario.http import same_origin, security_headers
 
 from app.assets import ASSETS
@@ -27,7 +28,13 @@ async def bootstrap(app: App, span: Span):
             await db.write(
                 login_data.add_user, str(uuid.uuid7()), config.admin_email, password_hash
             )
-        session = Session(config.session_secret, LOGIN.href(), secure=not config.dev)
+        # __Host- keeps a subdomain from setting the cookie; it needs Secure.
+        cookie = SignedCookie(
+            "session" if config.dev else "__Host-session",
+            keys=[config.session_secret],
+            secure=not config.dev,
+        )
+        session = Session(cookie, LOGIN.href())
         app.use("/", same_origin(), security_headers(), session.attach)
         app.use("/app", session.require)
         span.attrs(await ASSETS.attach(app))

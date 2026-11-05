@@ -2,11 +2,10 @@ import base64
 import hashlib
 import hmac
 import secrets
-import time
 from dataclasses import dataclass
 
 from stario import Context, Handler, Writer
-from stario.cookies import delete_cookie, set_cookie
+from stario.cookies import SignedCookie
 from stario.datastar import SSE
 
 _USER = "user"
@@ -24,37 +23,19 @@ class Session:
     """Built once in bootstrap. attach and require are middleware: register
     the bound methods, session.attach and session.require."""
 
-    secret: bytes
+    cookie: SignedCookie
     login_url: str
-    cookie: str = "session"
-    max_age: int = 60 * 60 * 24 * 14
-    secure: bool = True
-
-    def sign(self, body: str) -> str:
-        digest = hmac.new(self.secret, body.encode(), hashlib.sha256).digest()
-        return base64.urlsafe_b64encode(digest).decode()
 
     def issue(self, w: Writer, user_id: str) -> None:
-        body = f"{user_id}.{int(time.time()) + self.max_age}"
-        set_cookie(
-            w,
-            self.cookie,
-            f"{body}.{self.sign(body)}",
-            max_age=self.max_age,
-            httponly=True,
-            secure=self.secure,
-            samesite="lax",
-        )
+        self.cookie.set(w, {_USER: user_id})
 
     def clear(self, w: Writer) -> None:
-        delete_cookie(w, self.cookie, httponly=True, secure=self.secure, samesite="lax")
+        self.cookie.delete(w)
 
     def user_id(self, c: Context) -> str | None:
-        body, _, sig = c.req.cookies.get(self.cookie, "").rpartition(".")
-        user_id, _, exp = body.rpartition(".")
-        if not user_id or not exp.isdecimal() or int(exp) < time.time():
-            return None
-        return user_id if hmac.compare_digest(self.sign(body), sig) else None
+        value = self.cookie.get(c.req)
+        user = value.data.get(_USER) if value is not None else None
+        return user if isinstance(user, str) else None
 
     def attach(self, inner: Handler) -> Handler:
         """Every request below it: current_user(c) is the user id or None."""

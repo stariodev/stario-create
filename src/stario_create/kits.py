@@ -37,7 +37,8 @@ class Kit:
 KITS: dict[str, Kit] = {
     "auth": Kit(
         help="a signed session cookie, login, sign-up, logout, and their tests",
-        deps=("litewriter>=0.3.2,<0.4",),
+        # SignedCookie is new in stario 5.4.0.
+        deps=("stario>=5.4.0,<6", "litewriter>=0.3.2,<0.4"),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
             "Put APP_DEV=1 in .env on a laptop, so the cookie works over plain HTTP.",
