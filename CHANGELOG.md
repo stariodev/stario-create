@@ -6,6 +6,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## Unreleased
 
+## 5.11.0
+
 ### Changed
 
 - The guide has one rule for middleware with a dependency: it is a method of
@@ -22,6 +24,19 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - The guide says that `same_origin()` is the CSRF guard, so an app adds no
   CSRF tokens, and that it does not check GET, so a GET never changes
   state. The API profile has no forms and does not change.
+- New apps and the auth kit need `stario>=5.4.0`. `stario-create add auth`
+  adds that requirement.
+- The auth kit signs its cookie with `stario.cookies.SignedCookie`. `Session`
+  takes the cookie: `Session(SignedCookie(...), login_url)`. The cookie is
+  `__Host-session`, so a subdomain cannot set it, or `session` with
+  `APP_DEV=1` for plain HTTP. Existing sign-ins end once, because the cookie
+  format changes. Apps that already have the kit keep their files.
+- The guide says that a GET route answers HEAD, that a plain HTML form or a
+  file upload uses `read_form`, and that a body over 10 MiB needs
+  `max_size=`. The API guide says the same for `body()` and `stream()`.
+- `stario-api` lists `read_form`, `SignedCookie`, `body(max_size=)`, and the
+  `same_origin` options. Its morph section points to the guide, so the skill
+  stays under 9 KB.
 
 ## 5.10.0
 

@@ -15,11 +15,11 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/session.py` | `Session(secret, login_url)`: sign, issue, and clear the cookie. `attach` and `require` are middleware methods. `current_user(c)` is the user id or `None`. `hash_password` and `check_password` (scrypt). |
+| `app/common/session.py` | `Session(cookie, login_url)`: issue and clear a `SignedCookie`, read its user id. `attach` and `require` are middleware methods. `current_user(c)` is the user id or `None`. `hash_password` and `check_password` (scrypt). |
 | `app/features/login/` | `GET /login`, `POST /login`, `POST /logout`, and the `users` table in `data.py`. |
 | `app/features/signup/` | `GET /signup` and `POST /signup`. A taken email sets `_error`. |
 | `app/config.py` | `session_secret`, `dev`, `admin_email`, `admin_password`. |
-| `app/main.py` | The `LiteWriter`, the seed admin, the middleware, `/app` protected. |
+| `app/main.py` | The `LiteWriter`, the seed admin, the `SignedCookie` (`__Host-session`, or `session` with `APP_DEV=1`), the middleware, `/app` protected. |
 | `tests/conftest.py`, `tests/test_login.py` | Test settings, a `login(client)` helper, and the tests. |
 
 A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read that file and merge its lines into yours. In `app/main.py`, the order matters: `same_origin()` and `security_headers()` come before `session.attach`, and `attach` comes before any `require`.
@@ -53,11 +53,12 @@ tx.execute("CREATE INDEX IF NOT EXISTS todos_user ON todos(user_id)")
 
 ## Rules
 
-- The cookie holds the user id and an expiry, signed. It holds no password, no role, no row.
-- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`.
+- The cookie is a `SignedCookie`: the user id, signed, with an expiry that the server checks. It holds no password, no role, no row.
+- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`. The name is `__Host-session`, so a subdomain cannot set it.
+- To rotate `SESSION_SECRET`, pass `keys=[new, old]` for one `max_age`. Each key is 32 bytes or more.
 - A password is hashed with scrypt in `asyncio.to_thread`, never inside a write function. It is never stored in clear, logged, or put in a span attribute.
 - A protected page uses `require`. A handler never reads the cookie itself.
 - A command that acts for a user reads `current_user(c)`, not a signal or a path parameter.
 - Logout is a `POST`.
-- A session lasts `max_age` and cannot be revoked one at a time. For "sign out everywhere", add a `session_version` to the user `data` and to the cookie body, and compare them in `Session.user_id`.
+- A session lasts `max_age` and cannot be revoked one at a time. For "sign out everywhere", add a `session_version` to the user row and to the cookie data, and compare them in `Session.user_id`.
 - Prove login with `TestClient`. The client keeps cookies, so `await login(client)` signs in the next requests. Do not open a browser for a sign-in or a redirect.

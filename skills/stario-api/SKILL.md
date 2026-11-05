@@ -9,7 +9,8 @@ Every signature of stario 5.x. Do not read `site-packages`: pyrefly checks each 
 
 ```python
 from stario import App, Context, Relay, Route, Span, Writer, classes, h
-from stario.cookies import delete_cookie, set_cookie
+from stario.cookies import SignedCookie, delete_cookie, set_cookie
+from stario.forms import read_form
 from stario.http.middleware import catch_errors, same_origin, security_headers
 from stario.markup import baked, render
 from stario.testing import TestClient
@@ -28,11 +29,11 @@ app.create_task(coro, name=None)        # tracked; Stario waits for it on shutdo
 app.shutting_down                       # True while the server drains
 app.shutdown  # a timer loop reads it once
 
-ROUTE = Route("GET /rooms/{room_id}")
+ROUTE = Route("GET /rooms/{room_id}")   # a GET route answers HEAD too
 ROUTE.href(room_id, query={"sort": "title"}, fragment=None)   # "/rooms/7?sort=title"
 ```
 
-`python -m app.main` listens on `STARIO_HOST` and `STARIO_PORT` (default `127.0.0.1:8000`). A literal segment beats a parameter: `/rooms/live` and `/rooms/{room_id}` both work.
+A literal segment beats a parameter: `/rooms/live` and `/rooms/{room_id}` both work.
 
 ## Context: `c`
 
@@ -42,15 +43,13 @@ c.req.query                    # ParsedQuery: .get(key, default), .getlist(key),
 c.req.headers                  # .get(name, default), .getlist(name)
 c.req.headers.get("datastar-request")   # set on a Datastar action
 c.req.cookies                  # .get(name, default)
+await c.req.body(max_size=None)   # 10 MiB by default, past it 413
 c.match.params                 # path captures: dict of str; validate, then convert
 c.state                        # middleware fills it; read via current_user(c)
-c.app                          # the App
 c.span                         # this request's span
 c.alive(source)                # async iterator until the client leaves or the app drains
 c.disconnected  c.shutting_down  c.closing
 ```
-
-Signals come from `await read_signals(c.req)` (below).
 
 ## Writer: `w`
 
@@ -59,12 +58,23 @@ A handler answers once:
 ```text
 w.html(render(...))            # str, bytes, or h.* nodes; status=200
 w.text("why", status=400)
-w.json(value, status=200)      # through stario.json
+w.json(value, status=200)
 w.empty()                      # 204
-w.redirect(url, status=307)    # a Datastar request needs SSE(w).navigate(url) instead
+w.redirect(url, status=307)    # a Datastar request: SSE(w).navigate(url)
 w.headers.set(name, value)     # before the answer
-set_cookie(w, "sid", token, max_age=None, httponly=True, samesite="lax", secure=False)
+set_cookie(w, "sid", token, max_age=None, httponly=True, samesite="lax")
 delete_cookie(w, "sid")
+```
+
+`SignedCookie("__Host-session", keys=[secret])`: `.set(w, data)`, `.get(c.req)`, `.delete(w)`. Login: skill `stario-auth`.
+
+## Forms
+
+```text
+with await read_form(c.req, max_size=None) as form:
+    form.get("title", "")  form.getlist("tags")
+    photo = form.file("photo")  # UploadFile | None; .filename is untrusted
+    data = await photo.read()
 ```
 
 ## Relay
@@ -87,7 +97,7 @@ span = c.span.step("report.run")        # a child span for a job; use it as `wit
 
 ## Middleware
 
-- `same_origin()`: a cross-site `POST` gets 403. Keep it on `/`.
+- `same_origin(trusted_origins=, exempt=)`: the CSRF guard; a cross-site `POST` gets 403. Keep it on `/`.
 - `security_headers()`: `nosniff`, `x-frame-options: DENY`, a referrer policy. No Content-Security-Policy, so Datastar expressions work.
 - `catch_errors(SomeError, respond=fn)`: an exception becomes a response when nothing was sent.
 
@@ -170,7 +180,7 @@ at.peek(expr)   at.set_all(value)   at.toggle_all()
 ## Server side: `read_signals` and `SSE`
 
 ```text
-signals = await read_signals(c.req)      # dict; a GET sends them in ?datastar=
+signals = await read_signals(c.req)      # dict; a GET sends them in ?datastar=; max_size=
 sse = SSE(w)
 sse.patch_elements(part, mode=None, selector=None, namespace=None)
 sse.patch_signals({...}, only_if_missing=False)
@@ -183,9 +193,4 @@ sse.remove(selector)
 
 ## How a morph treats the page
 
-- `patch_elements` finds each top element by `id` and morphs it in place.
-- A morph keeps the element when its tag, `id`, and attribute text stay. Thus `data.init` does not run again.
-- `data.signals(..., if_missing=True)` keeps what the user typed. An open `<dialog>` needs `data.preserve_attr("open")`. A subtree the client owns needs `data.ignore_morph()`.
-- `data.indicator` goes on the element whose `data.on` sends the request: the `<form>` for a submit.
-
-Trust the morph. When the stream test shows the new HTML, Datastar puts it on the page. Skill `stario-browser-check` lists the test for each question.
+`patch_elements` finds each top element by `id` and morphs it in place. The guide (Render and signals) says what a morph keeps. A subtree the client owns needs `data.ignore_morph()`. Trust the morph: when the stream test shows the new HTML, Datastar puts it on the page (skill `stario-browser-check`).

@@ -18,7 +18,7 @@ just check   # lint, format, types, tests — run before done
 
 `new` gives you a tested, runnable app:
 
-- A uv project on Python 3.14 with `stario>=5.1,<6` and the dev tools.
+- A uv project on Python 3.14 with `stario>=5.4,<6` and the dev tools.
 - The feature-folder layout with one static `home` page.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).

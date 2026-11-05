@@ -40,7 +40,7 @@ tests/test_<page>.py
 - Not ASGI: no Uvicorn, FastAPI, or response objects.
 - `bootstrap(app, span)` is an async generator with one `yield`. Keep `app.use("/", same_origin(), security_headers())`. `same_origin()` is the CSRF guard: add no CSRF tokens. It does not check GET, so a GET never changes state.
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
-- `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})`. No `url_for`.
+- `Route("GET /rooms/{room_id}")` is one method on one path; a GET route answers HEAD too. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})`. No `url_for`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 - A middleware with a dependency is a method of a class built in `bootstrap`: `app.use("/", session.attach)`, never a function that returns a middleware. Handlers read its state through a typed function such as `current_user(c)`, not `c.state[...]`.
@@ -61,7 +61,7 @@ POST /board/...    a command
 
 The stream is the only thing that sends HTML. It follows `db.watch(query)` (SQLite) or `relay.subscribe(CHANGED, latest=True)` (memory). A command never answers with HTML:
 
-1. Read: `await read_signals(c.req)`, `c.match.params`.
+1. Read: `await read_signals(c.req)`, `c.match.params`. A plain HTML form or a file upload: `await read_form(c.req)` (`stario.forms`). A body over 10 MiB needs `max_size=`.
 2. Validate: bad input gets `w.text("why", status=400)` and `return`.
 3. Reply: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`.
 4. Execute: `await db.write(...)`, or change memory, then `relay.publish(CHANGED, {})`.
