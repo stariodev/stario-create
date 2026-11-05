@@ -4,6 +4,14 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- The guide says that `same_origin()` is the CSRF guard, so an app adds no
+  CSRF tokens, and that it does not check GET, so a GET never changes
+  state. The API profile has no forms and does not change.
+
 ## 5.10.0
 
 ### Changed
