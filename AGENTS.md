@@ -43,6 +43,7 @@ tests/test_<page>.py
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})`. No `url_for`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
+- A middleware with a dependency is a method of a class built in `bootstrap`: `app.use("/", session.attach)`, never a function that returns a middleware. Handlers read its state through a typed function such as `current_user(c)`, not `c.state[...]`.
 
 ## A page is a resource
 

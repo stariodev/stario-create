@@ -43,7 +43,7 @@ c.req.headers                  # .get(name, default), .getlist(name)
 c.req.headers.get("datastar-request")   # set on a Datastar action
 c.req.cookies                  # .get(name, default)
 c.match.params                 # path captures: dict of str; validate, then convert
-c.state                        # dict that middleware fills: c.state["user"]
+c.state                        # middleware fills it; read via current_user(c)
 c.app                          # the App
 c.span                         # this request's span
 c.alive(source)                # async iterator until the client leaves or the app drains
