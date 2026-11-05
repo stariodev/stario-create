@@ -5,14 +5,27 @@ import secrets
 import time
 from dataclasses import dataclass
 
-from stario import Context, Handler, Middleware, Writer
+from stario import Context, Handler, Writer
 from stario.cookies import delete_cookie, set_cookie
 from stario.datastar import SSE
+
+_USER = "user"
+
+
+def current_user(c: Context) -> str | None:
+    """The signed-in user id of this request, or None. Needs Session.attach."""
+    if _USER not in c.state:
+        raise RuntimeError("current_user() needs the session.attach middleware on this route")
+    return c.state[_USER]
 
 
 @dataclass(frozen=True, slots=True)
 class Session:
+    """Built once in bootstrap. attach and require are middleware: register
+    the bound methods, session.attach and session.require."""
+
     secret: bytes
+    login_url: str
     cookie: str = "session"
     max_age: int = 60 * 60 * 24 * 14
     secure: bool = True
@@ -43,34 +56,28 @@ class Session:
             return None
         return user_id if hmac.compare_digest(self.sign(body), sig) else None
 
-    def attach(self) -> Middleware:
-        """Every request gets c.state["user"]: the user id or None."""
+    def attach(self, inner: Handler) -> Handler:
+        """Every request below it: current_user(c) is the user id or None."""
 
-        def middleware(inner: Handler) -> Handler:
-            async def handler(c: Context, w: Writer) -> None:
-                c.state["user"] = self.user_id(c)
-                await inner(c, w)
+        async def handler(c: Context, w: Writer) -> None:
+            c.state[_USER] = self.user_id(c)
+            await inner(c, w)
 
-            return handler
+        return handler
 
-        return middleware
-
-    def require(self, login_url: str) -> Middleware:
+    def require(self, inner: Handler) -> Handler:
         """A page for signed-in users. A page load redirects. A Datastar action navigates."""
 
-        def middleware(inner: Handler) -> Handler:
-            async def handler(c: Context, w: Writer) -> None:
-                if c.state.get("user") is None:
-                    if c.req.headers.get("datastar-request"):
-                        SSE(w).navigate(login_url)
-                    else:
-                        w.redirect(login_url, status=303)
-                    return
-                await inner(c, w)
+        async def handler(c: Context, w: Writer) -> None:
+            if current_user(c) is None:
+                if c.req.headers.get("datastar-request"):
+                    SSE(w).navigate(self.login_url)
+                else:
+                    w.redirect(self.login_url, status=303)
+                return
+            await inner(c, w)
 
-            return handler
-
-        return middleware
+        return handler
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:

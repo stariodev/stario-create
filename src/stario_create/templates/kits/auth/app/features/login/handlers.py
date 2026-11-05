@@ -5,7 +5,7 @@ from litewriter import LiteWriter
 from stario import App, Context, Writer
 from stario.datastar import SSE, read_signals
 
-from app.common.session import Session, check_password
+from app.common.session import Session, check_password, current_user
 from app.features.home.urls import HOME
 from app.features.login.data import get_login
 from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
@@ -23,7 +23,7 @@ class LoginPage:
         app.add(LOGOUT, self.logout)
 
     async def show(self, c: Context, w: Writer) -> None:
-        if c.state.get("user"):
+        if current_user(c):
             w.redirect(HOME.href(), status=303)
             return
         w.html(render())

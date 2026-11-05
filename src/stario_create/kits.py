@@ -41,7 +41,7 @@ KITS: dict[str, Kit] = {
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
             "Put APP_DEV=1 in .env on a laptop, so the cookie works over plain HTTP.",
-            'Protect pages under /app, or add app.use("/todos", session.require(LOGIN.href())).',
+            'Protect pages under /app, or add app.use("/todos", session.require).',
         ),
     ),
     "tailwind": Kit(

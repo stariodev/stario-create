@@ -8,6 +8,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- The guide has one rule for middleware with a dependency: it is a method of
+  a class built in `bootstrap`, registered as a bound method
+  (`app.use("/", session.attach)`), never a function that returns a
+  middleware. Handlers read its state through a typed function such as
+  `current_user(c)`, not `c.state[...]`.
+- The auth kit follows it. `Session(secret, login_url)` takes the login URL
+  in its constructor, and `attach` and `require` are middleware methods:
+  `app.use("/", session.attach)` and `app.use("/app", session.require)`.
+  `current_user(c)` returns the user id, and raises when `session.attach`
+  did not run on the route. The `stario-auth` skill and the `stario-api`
+  skill say the same. Apps that already have the kit keep their files.
 - The guide says that `same_origin()` is the CSRF guard, so an app adds no
   CSRF tokens, and that it does not check GET, so a GET never changes
   state. The API profile has no forms and does not change.

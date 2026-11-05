@@ -27,9 +27,9 @@ async def bootstrap(app: App, span: Span):
             await db.write(
                 login_data.add_user, str(uuid.uuid7()), config.admin_email, password_hash
             )
-        session = Session(config.session_secret, secure=not config.dev)
-        app.use("/", same_origin(), security_headers(), session.attach())
-        app.use("/app", session.require(LOGIN.href()))
+        session = Session(config.session_secret, LOGIN.href(), secure=not config.dev)
+        app.use("/", same_origin(), security_headers(), session.attach)
+        app.use("/app", session.require)
         span.attrs(await ASSETS.attach(app))
         HomePage(config.app_name).register(app)
         LoginPage(db, session).register(app)
