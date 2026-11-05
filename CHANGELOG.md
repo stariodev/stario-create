@@ -6,6 +6,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## Unreleased
 
+## 5.11.0
+
 ### Changed
 
 - The guide has one rule for middleware with a dependency: it is a method of
