@@ -33,10 +33,10 @@ class LoginPage:
         app.add(LOGOUT, self.logout)
 
     async def show(self, c: Context, w: Writer) -> None:
+        next_url = local_path(c.req.query.get("next", ""), HOME.href())
         if current_user(c):
-            w.redirect(HOME.href(), status=303)
+            w.redirect(next_url, status=303)
             return
-        next_url = local_path(c.req.query.get("next", ""))
         error = str(c.req.query.get("error", ""))
         w.html(render(list(self.providers), next_url, error))
 
@@ -47,7 +47,7 @@ class LoginPage:
             w.text("unknown provider", status=404)
             return
         with await read_form(c.req) as form:
-            next_url = local_path(form.get("next", ""))
+            next_url = local_path(form.get("next", ""), HOME.href())
         flow = Flow.new()
         try:
             url = await provider.authorize_url(self._callback_url(c, name), flow)
@@ -91,7 +91,7 @@ class LoginPage:
             return
         user_id = await self.db.write(add_login, who, str(uuid.uuid7()))
         self.session.issue(w, user_id)
-        w.redirect(local_path(data.get("next")), status=303)
+        w.redirect(local_path(data.get("next"), HOME.href()), status=303)
 
     async def logout(self, c: Context, w: Writer) -> None:
         self.session.clear(w)
@@ -101,9 +101,9 @@ class LoginPage:
             w.redirect(LOGIN.href(), status=303)
 
     def _callback_url(self, c: Context, name: str) -> str:
-        # A provider accepts only the callback URLs registered there, so a forged Host fails.
-        host = c.req.headers.get("host", "")
-        return f"{self.scheme}://{host}{LOGIN_CALLBACK.href(name)}"
+        # The provider compares it with the callback URLs registered there, and the
+        # exchange needs the client secret, so a forged Host cannot finish a sign-in.
+        return f"{self.scheme}://{c.req.host}{LOGIN_CALLBACK.href(name)}"
 
     def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
         c.span.attrs({"login.error": error, "login.reason": reason})

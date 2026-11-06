@@ -5,7 +5,14 @@ from dataclasses import dataclass
 from stario import App, Context, Writer
 from stario.datastar import SSE, read_signals
 
-from app.common.session import Session, Tries, check_password, current_user, hash_password
+from app.common.session import (
+    Session,
+    Tries,
+    check_password,
+    current_user,
+    hash_password,
+    local_path,
+)
 from app.features.home.urls import HOME
 from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
 from app.features.login.views import render
@@ -26,10 +33,11 @@ class LoginPage:
         app.add(LOGOUT, self.logout)
 
     async def show(self, c: Context, w: Writer) -> None:
+        next_url = local_path(c.req.query.get("next", ""), HOME.href())
         if current_user(c):
-            w.redirect(HOME.href(), status=303)
+            w.redirect(next_url, status=303)
             return
-        w.html(render())
+        w.html(render(next_url))
 
     async def submit(self, c: Context, w: Writer) -> None:
         signals = await read_signals(c.req)
@@ -47,8 +55,11 @@ class LoginPage:
             return
         self.tries.clear(email)
         self.session.issue(w, email)
-        SSE(w).navigate(HOME.href())
+        SSE(w).navigate(local_path(signals.get("next"), HOME.href()))
 
     async def logout(self, c: Context, w: Writer) -> None:
         self.session.clear(w)
-        SSE(w).navigate(LOGIN.href())
+        if c.req.headers.get("datastar-request"):
+            SSE(w).navigate(LOGIN.href())
+        else:
+            w.redirect(LOGIN.href(), status=303)

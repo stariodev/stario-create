@@ -43,7 +43,7 @@ KITS: dict[str, Kit] = {
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
             "Create an OAuth client at each provider (Google: Google Auth Platform, Clients, Web).",
             "Register its callback: https://<host>/login/<provider>/callback, and "
-            "http://localhost:8000/login/<provider>/callback for the laptop.",
+            "http://127.0.0.1:8000/login/<provider>/callback for the laptop (open that host).",
             "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (or GITHUB_, or OIDC_ with OIDC_ISSUER).",
             "Put APP_DEV=1 in .env on a laptop, so the cookies and the callback work over plain HTTP.",
             'Protect pages under /app, or add app.use("/todos", session.require).',

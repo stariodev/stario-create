@@ -41,16 +41,16 @@ class Session:
     def clear(self, w: Writer) -> None:
         self.cookie.delete(w)
 
-    def user_id(self, c: Context) -> str | None:
-        value = self.cookie.get(c.req)
-        user = value.data.get(_USER) if value is not None else None
-        return user if isinstance(user, str) else None
-
     def attach(self, inner: Handler) -> Handler:
-        """Every request below it: current_user(c) is the user id or None."""
+        """Every request below it: current_user(c) is the user id or None. A visit past
+        half of max_age sets the cookie again, so an active user stays signed in."""
 
         async def handler(c: Context, w: Writer) -> None:
-            c.state[_USER] = self.user_id(c)
+            value = self.cookie.get(c.req)
+            user = value.data.get(_USER) if value is not None else None
+            c.state[_USER] = user if isinstance(user, str) else None
+            if value is not None and c.state[_USER] and value.age > self.cookie.max_age / 2:
+                self.cookie.set(w, value.data)
             await inner(c, w)
 
         return handler
@@ -64,7 +64,10 @@ class Session:
                 if c.req.headers.get("datastar-request"):
                     SSE(w).navigate(self.login_url)
                 else:
-                    w.redirect(f"{self.login_url}?{urlencode({'next': c.req.path})}", status=303)
+                    target = c.req.raw_path.decode()
+                    if c.req.query_bytes:
+                        target += "?" + c.req.query_bytes.decode("utf-8", "replace")
+                    w.redirect(f"{self.login_url}?{urlencode({'next': target})}", status=303)
                 return
             await inner(c, w)
 

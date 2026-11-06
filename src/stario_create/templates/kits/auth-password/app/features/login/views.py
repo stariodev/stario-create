@@ -6,12 +6,14 @@ from app.common.shell import page
 from app.features.login.urls import LOGIN_POST
 
 
-def render() -> HtmlElement:
+def render(next_url: str) -> HtmlElement:
     return page(
         "Sign in",
         h.Main(
             {"id": "login"},
-            data.signals({"email": "", "password": "", "_error": ""}, if_missing=True),
+            data.signals(
+                {"email": "", "password": "", "next": next_url, "_error": ""}, if_missing=True
+            ),
             h.H1("Sign in"),
             h.Form(
                 data.on("submit", at.post(LOGIN_POST.href()), prevent=True),

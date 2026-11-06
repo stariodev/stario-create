@@ -3,6 +3,8 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
+from app.common.providers import is_secure
+
 
 @dataclass(frozen=True, slots=True)
 class Config:
@@ -62,8 +64,8 @@ class Config:
         for name, (client_id, secret) in pairs.items():
             if bool(client_id) != bool(secret):
                 raise RuntimeError(f"Set both {name}_CLIENT_ID and {name}_CLIENT_SECRET.")
-        if config.oidc_client_id and not config.oidc_issuer:
-            raise RuntimeError("OIDC_CLIENT_ID is set: set OIDC_ISSUER to the issuer URL.")
+        if config.oidc_client_id and not is_secure(config.oidc_issuer):
+            raise RuntimeError("OIDC_CLIENT_ID is set: set OIDC_ISSUER to an https:// URL.")
         if not any(client_id for client_id, _ in pairs.values()):
             raise RuntimeError("Set GOOGLE_, GITHUB_, or OIDC_CLIENT_ID and _CLIENT_SECRET.")
         config.data_dir.mkdir(parents=True, exist_ok=True)

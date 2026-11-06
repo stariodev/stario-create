@@ -17,20 +17,28 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `views.py`. `LOGIN_ALLOWED_EMAILS` is an optional allow list. `app/common/providers.py` sends `state` and PKCE to every
   provider. For OIDC it also sends a `nonce`, and it checks `iss`, `aud`,
   `azp`, `exp`, and `nonce` in the ID token. GitHub gives the numeric user id
-  and the primary verified email. Users are keyed by
-  `identities(issuer, subject)`, never by the email; a new identity joins the
-  user with the same verified email, so one user can sign in with Google and
-  GitHub. The tests sign in against `FakeProviders`.
+  and the primary verified email. Discovery must name the configured issuer,
+  and its endpoints must be HTTPS. Users are keyed by
+  `identities(issuer, subject)`, never by the email. A new identity joins a
+  user only through a verified email from an issuer in `LINK_BY_EMAIL`
+  (Google and GitHub), stored on the identity, so an unverified address can
+  never claim an account. `get_user(db, user_id)` reads the name and the
+  email. The tests sign in against `FakeProviders`, which checks PKCE, the
+  redirect URI, and the client secret.
 - The password kit moves to `stario-create add auth-password` and becomes
   closed accounts for an admin page: the accounts live in `LOGIN_ACCOUNTS`
   (`just password-hash <email>` prints one), there is no sign-up page, five
   wrong passwords in 15 minutes lock an account, and an unknown email still
   runs one hash, so the answer time does not show which accounts exist.
-- `session.require` sends a signed-out page load to `/login?next=<path>`,
-  and `local_path` keeps that redirect on the site.
+- `session.require` sends a signed-out page load to
+  `/login?next=<path and query>`, and `local_path` keeps that redirect on
+  the site. A visit past half of the session `max_age` sets the cookie
+  again, so an active user stays signed in.
 - The `stario-auth` skill makes OpenID Connect the default and tells the
   agent not to build open password sign-up.
-- Apps that already have the old kit keep their files.
+- Apps that already have the old kit keep their files. An app that moves to
+  the new `add auth` must drop the old `users_email` unique index and the
+  `email` column of `users`: the new kit keeps the email in `users.data`.
 
 ## 5.11.0
 

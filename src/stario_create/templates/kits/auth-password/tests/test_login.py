@@ -1,4 +1,4 @@
-from app.features.login.urls import LOGIN, LOGOUT
+from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
 from tests.conftest import login
 
 # The prefix that session.require protects in app/main.py.
@@ -13,10 +13,19 @@ async def test_a_protected_page_sends_a_visitor_to_login(client):
     assert "window.location" in r.text
 
 
+async def test_login_returns_to_next(client):
+    r = await client.post(
+        LOGIN_POST.href(),
+        json={"email": "ada@example.com", "password": "correct-horse", "next": "/app?tab=2"},
+    )
+    assert "/app?tab=2" in r.text
+
+
 async def test_login_then_logout(client):
     assert "window.location" in await login(client)
-    assert (await client.get(PROTECTED, follow_redirects=False)).status_code != 303
-    await client.post(LOGOUT.href())
+    assert (await client.get(PROTECTED, follow_redirects=False)).status_code == 404
+    r = await client.post(LOGOUT.href(), follow_redirects=False)
+    assert r.headers.get("location") == LOGIN.href()
     assert (await client.get(PROTECTED, follow_redirects=False)).status_code == 303
 
 

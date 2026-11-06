@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import time
+import zlib
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -13,8 +15,10 @@ from app.main import bootstrap
 
 
 class FakeProviders(Http):
-    """Google and GitHub. The code is "<email> <nonce>": that email signs in,
-    and the nonce goes into the Google ID token."""
+    """Google and GitHub, with the checks they make. The code carries what the
+    provider remembers from the redirect: "<email> <nonce> <challenge> <redirect_uri>".
+    An email that starts with "unverified+" comes back unverified, and GitHub
+    refuses a code for an email that starts with "refuse+"."""
 
     async def get_json(self, url: str, headers: dict[str, str] | None = None) -> Any:
         if url == f"{GOOGLE}/.well-known/openid-configuration":
@@ -23,23 +27,33 @@ class FakeProviders(Http):
                 "authorization_endpoint": f"{GOOGLE}/o/oauth2/v2/auth",
                 "token_endpoint": "https://oauth2.googleapis.com/token",
             }
-        email = (headers or {})["Authorization"].removeprefix("Bearer ")
+        raw = (headers or {})["Authorization"].removeprefix("Bearer ")
+        email = raw.removeprefix("unverified+")
         if url == "https://api.github.com/user":
-            return {"id": len(email), "login": email.split("@")[0], "name": None}
+            return {"id": zlib.crc32(email.encode()), "login": email.split("@")[0], "name": None}
         assert url == "https://api.github.com/user/emails"
-        return [{"email": email, "primary": True, "verified": True}]
+        return [{"email": email, "primary": True, "verified": raw == email}]
 
     async def post_form(self, url: str, form: dict[str, str], headers: dict[str, str]) -> Any:
-        email, nonce = form["code"].split(" ")
+        raw, nonce, challenge, redirect_uri = form["code"].split(" ")
+        digest = hashlib.sha256(form["code_verifier"].encode()).digest()
+        assert base64.urlsafe_b64encode(digest).decode().rstrip("=") == challenge
+        assert form["redirect_uri"] == redirect_uri
         if url == "https://github.com/login/oauth/access_token":
-            return {"access_token": email}
-        assert headers["Authorization"].startswith("Basic ")
+            assert (form["client_id"], form["client_secret"]) == ("github-id", "github-secret")
+            if raw.startswith("refuse+"):
+                return {"error": "bad_verification_code"}
+            return {"access_token": raw}
+        assert url == "https://oauth2.googleapis.com/token"
+        basic = base64.b64encode(b"google-id:google-secret").decode()
+        assert headers["Authorization"] == f"Basic {basic}"
+        email = raw.removeprefix("unverified+")
         claims = {
             "iss": GOOGLE,
             "aud": "google-id",
-            "sub": f"sub-{email}",
+            "sub": f"sub-{raw}",
             "email": email,
-            "email_verified": True,
+            "email_verified": raw == email,
             "exp": time.time() + 60,
             "nonce": nonce,
         }
@@ -78,9 +92,9 @@ async def start(client, provider="google", next_url="/") -> dict[str, str]:
 async def login(client, email="ada@example.com", provider="google", next_url="/"):
     """Sign in as the provider would: the start, then the callback with a code."""
     query = await start(client, provider, next_url)
-    code = f"{email} {query.get('nonce', '-')}"
+    parts = [email, query.get("nonce", "-"), query["code_challenge"], query["redirect_uri"]]
     return await client.get(
         LOGIN_CALLBACK.href(provider),
-        params={"code": code, "state": query["state"]},
+        params={"code": " ".join(parts), "state": query["state"]},
         follow_redirects=False,
     )

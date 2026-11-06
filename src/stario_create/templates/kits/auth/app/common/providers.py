@@ -15,6 +15,7 @@ import base64
 import hashlib
 import secrets
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ from typing import Any, Protocol
 from stario import json
 
 GOOGLE = "https://accounts.google.com"
+GITHUB = "https://github.com"
 
 
 class LoginFailed(Exception):
@@ -59,6 +61,14 @@ class Flow:
         return base64.urlsafe_b64encode(digest).decode().rstrip("=")
 
 
+def is_secure(url: str) -> bool:
+    """HTTPS, or plain HTTP to this machine for a local issuer."""
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme == "https" or (
+        parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1")
+    )
+
+
 class Http:
     """The calls to a provider, through urllib on a worker thread. Tests replace it."""
 
@@ -75,7 +85,9 @@ def _send(request: urllib.request.Request) -> Any:
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
             return json.loads(response.read())
-    except (OSError, ValueError) as e:  # no answer, an HTTP error status, or not JSON
+    except urllib.error.HTTPError as e:  # the body names the cause: invalid_grant, ...
+        raise LoginFailed(f"{request.full_url}: {e.code} {e.read()[:300]!r}") from e
+    except (OSError, ValueError) as e:  # no answer, or not JSON
         raise LoginFailed(f"{request.full_url}: {e}") from e
 
 
@@ -120,12 +132,19 @@ class Issuer:
         headers: dict[str, str] = {}
         methods = meta.get("token_endpoint_auth_methods_supported") or ["client_secret_basic"]
         if "client_secret_basic" in methods:
-            pair = f"{urllib.parse.quote(self.client_id)}:{urllib.parse.quote(self.client_secret)}"
+            quote = urllib.parse.quote  # RFC 6749 2.3.1: encode both parts, "/" too
+            pair = f"{quote(self.client_id, safe='')}:{quote(self.client_secret, safe='')}"
             headers["Authorization"] = "Basic " + base64.b64encode(pair.encode()).decode()
         else:
             form |= {"client_id": self.client_id, "client_secret": self.client_secret}
         tokens = await self.http.post_form(meta["token_endpoint"], form, headers)
-        claims = _claims(tokens.get("id_token") if isinstance(tokens, dict) else None)
+        try:
+            payload = str(tokens.get("id_token")).split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        except (AttributeError, IndexError, ValueError) as e:
+            raise LoginFailed(f"the answer has no readable id_token: {tokens!r}") from e
+        if not isinstance(claims, dict):
+            raise LoginFailed("the id_token claims are not an object")
         # Google also writes its issuer without the scheme.
         issuers = {meta["issuer"]} | ({"accounts.google.com"} if self.url == GOOGLE else set())
         audience = claims.get("aud")
@@ -153,16 +172,22 @@ class Issuer:
         )
 
     async def _metadata(self) -> dict[str, Any]:
-        if not self._meta:
-            meta = await self.http.get_json(
-                f"{self.url.rstrip('/')}/.well-known/openid-configuration"
-            )
-            if not isinstance(meta, dict):
-                raise LoginFailed(f"discovery at {self.url} is not an object")
-            for key in ("issuer", "authorization_endpoint", "token_endpoint"):
-                if not isinstance(meta.get(key), str):
-                    raise LoginFailed(f"discovery at {self.url} has no {key}")
-            self._meta.update(meta)
+        if self._meta:
+            return self._meta
+        meta = await self.http.get_json(f"{self.url.rstrip('/')}/.well-known/openid-configuration")
+        if not isinstance(meta, dict):
+            raise LoginFailed(f"discovery at {self.url} is not an object")
+        for key in ("issuer", "authorization_endpoint", "token_endpoint"):
+            if not isinstance(meta.get(key), str):
+                raise LoginFailed(f"discovery at {self.url} has no {key}")
+        # OIDC Discovery 4.3: the issuer in the document is the URL we asked.
+        if meta["issuer"].rstrip("/") != self.url.rstrip("/"):
+            raise LoginFailed(f"discovery says issuer {meta['issuer']!r}, not {self.url!r}")
+        # The skipped signature check rests on TLS to the token endpoint.
+        for key in ("authorization_endpoint", "token_endpoint"):
+            if not is_secure(meta[key]):
+                raise LoginFailed(f"{key} is not HTTPS: {meta[key]}")
+        self._meta.update(meta)
         return self._meta
 
 
@@ -179,12 +204,12 @@ class GitHub:
         query = {
             "client_id": self.client_id,
             "redirect_uri": redirect_uri,
-            "scope": "read:user user:email",
+            "scope": "user:email",  # /user needs no scope; /user/emails needs this one
             "state": flow.state,
             "code_challenge": flow.challenge,
             "code_challenge_method": "S256",
         }
-        return f"https://github.com/login/oauth/authorize?{urllib.parse.urlencode(query)}"
+        return f"{GITHUB}/login/oauth/authorize?{urllib.parse.urlencode(query)}"
 
     async def identity(self, code: str, redirect_uri: str, flow: Flow) -> Identity:
         form = {
@@ -194,7 +219,7 @@ class GitHub:
             "redirect_uri": redirect_uri,
             "code_verifier": flow.verifier,
         }
-        tokens = await self.http.post_form("https://github.com/login/oauth/access_token", form, {})
+        tokens = await self.http.post_form(f"{GITHUB}/login/oauth/access_token", form, {})
         # GitHub answers 200 with {"error": ...} when it refuses the code.
         token = tokens.get("access_token") if isinstance(tokens, dict) else None
         if not isinstance(token, str):
@@ -204,33 +229,13 @@ class GitHub:
         emails = await self.http.get_json("https://api.github.com/user/emails", headers)
         if not isinstance(user, dict) or not isinstance(user.get("id"), int):
             raise LoginFailed("GitHub sent no user id")
-        primary = (
-            next(
-                (
-                    e
-                    for e in emails
-                    if isinstance(e, dict) and e.get("primary") and e.get("verified")
-                ),
-                None,
-            )
-            if isinstance(emails, list)
-            else None
-        )
+        emails = emails if isinstance(emails, list) else []
+        verified = [e for e in emails if isinstance(e, dict) and e.get("verified")]
+        primary = next((e for e in verified if e.get("primary")), None)
         return Identity(
-            issuer="https://github.com",
+            issuer=GITHUB,
             subject=str(user["id"]),
             email=str(primary["email"]).strip().lower() if primary else "",
             email_verified=primary is not None,
             name=str(user.get("name") or user.get("login") or ""),
         )
-
-
-def _claims(id_token: object) -> dict[str, Any]:
-    try:
-        payload = str(id_token).split(".")[1]
-        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-    except (IndexError, ValueError) as e:
-        raise LoginFailed("the answer has no readable id_token") from e
-    if not isinstance(claims, dict):
-        raise LoginFailed("the id_token claims are not an object")
-    return claims

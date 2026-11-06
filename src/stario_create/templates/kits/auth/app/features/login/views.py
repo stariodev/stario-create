@@ -5,11 +5,12 @@ from app.common.shell import page
 from app.features.login.urls import LOGIN_START
 
 # The button text for each provider name in app/main.py. Name your OIDC issuer here.
+# Sign out is a plain form anywhere: h.Form({"method": "post", "action": LOGOUT.href()}, ...)
 LABELS = {"google": "Google", "github": "GitHub", "oidc": "single sign-on"}
 
 ERRORS = {
     "denied": "The sign-in was cancelled.",
-    "expired": "The sign-in took too long. Try again.",
+    "expired": "The sign-in did not finish. Try again.",
     "failed": "The sign-in did not work. Try again.",
     "not_allowed": "This account has no access.",
 }
