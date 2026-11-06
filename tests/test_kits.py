@@ -29,9 +29,9 @@ def test_auth_fills_the_app_name_and_replaces_untouched_files(app: Path):
     config = (app / "app/config.py").read_text()
     assert '"demo"' in config
     assert "SESSION_SECRET" in config
-    assert "LOGIN_CLIENT_ID" in config
+    assert "google_client_id" in config
     assert "Issuer(" in (app / "app/main.py").read_text()
-    assert "FakeIssuer" in (app / "tests/conftest.py").read_text()
+    assert "FakeProviders" in (app / "tests/conftest.py").read_text()
     assert not (app / "app/features/signup").exists()
 
 

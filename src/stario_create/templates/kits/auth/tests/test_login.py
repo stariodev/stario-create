@@ -1,6 +1,8 @@
+import sqlite3
+
 from stario.testing import TestClient
 
-from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGOUT
+from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
 from app.main import bootstrap
 from tests.conftest import login, start
 
@@ -22,7 +24,7 @@ async def test_the_start_sends_state_nonce_and_pkce(client):
     query = await start(client)
     assert query["scope"] == "openid email profile"
     assert query["code_challenge_method"] == "S256"
-    assert query["redirect_uri"].endswith(LOGIN_CALLBACK.href())
+    assert query["redirect_uri"].endswith(LOGIN_CALLBACK.href("google"))
     assert query["state"] and query["nonce"]
 
 
@@ -35,7 +37,7 @@ async def test_login_then_logout(client):
 
 async def test_a_callback_without_the_start_signs_nobody_in(client):
     r = await client.get(
-        LOGIN_CALLBACK.href(),
+        LOGIN_CALLBACK.href("google"),
         params={"code": "ada@example.com x", "state": "forged"},
         follow_redirects=False,
     )
@@ -46,7 +48,7 @@ async def test_a_callback_without_the_start_signs_nobody_in(client):
 async def test_a_wrong_nonce_fails(client):
     query = await start(client)
     r = await client.get(
-        LOGIN_CALLBACK.href(),
+        LOGIN_CALLBACK.href("google"),
         params={"code": "ada@example.com another-nonce", "state": query["state"]},
         follow_redirects=False,
     )
@@ -56,7 +58,7 @@ async def test_a_wrong_nonce_fails(client):
 async def test_a_cancel_at_the_issuer_says_so(client):
     query = await start(client)
     r = await client.get(
-        LOGIN_CALLBACK.href(),
+        LOGIN_CALLBACK.href("google"),
         params={"error": "access_denied", "state": query["state"]},
         follow_redirects=False,
     )
@@ -75,3 +77,29 @@ async def test_the_allow_list_keeps_other_accounts_out(env):
         r = await login(client, email="bob@example.com")
         assert r.headers.get("location") == LOGIN.href(query={"error": "not_allowed"})
         assert (await login(client)).headers.get("location") == "/"
+
+
+async def test_github_signs_in_and_joins_the_google_user(client, tmp_path):
+    assert (await login(client, provider="github")).headers.get("location") == "/"
+    assert (await client.get(PROTECTED, follow_redirects=False)).status_code != 303
+    await login(client, provider="google")
+    with sqlite3.connect(tmp_path / "app.sqlite3") as db:
+        assert db.execute("SELECT count(*) FROM users").fetchone() == (1,)
+        assert db.execute("SELECT count(*) FROM identities").fetchone() == (2,)
+
+
+async def test_a_callback_for_another_provider_fails(client):
+    query = await start(client, "google")
+    r = await client.get(
+        LOGIN_CALLBACK.href("github"),
+        params={"code": "ada@example.com x", "state": query["state"]},
+        follow_redirects=False,
+    )
+    assert r.headers.get("location") == LOGIN.href(query={"error": "expired"})
+
+
+async def test_the_page_shows_one_button_per_provider(client):
+    text = (await client.get(LOGIN.href())).text
+    assert "Continue with Google" in text
+    assert "Continue with GitHub" in text
+    assert (await client.post(LOGIN_START.href("nope"), data={})).status_code == 404

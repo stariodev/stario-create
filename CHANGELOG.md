@@ -8,14 +8,19 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
-- `stario-create add auth` is now sign-in with OpenID Connect. It works with
-  Google (the default) and any issuer with discovery: `LOGIN_ISSUER`,
-  `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET`, and an optional
-  `LOGIN_ALLOWED_EMAILS`. `app/common/oidc.py` sends `state`, `nonce`, and
-  PKCE, and checks `iss`, `aud`, `azp`, `exp`, and `nonce` in the ID token.
-  Users are keyed by `identities(issuer, subject)`, never by the email; a
-  new identity joins the user with the same verified email. The tests sign
-  in against a `FakeIssuer`.
+- `stario-create add auth` is now sign-in with Google, GitHub, or any
+  OpenID Connect issuer with discovery. Each provider is on when its pair is
+  set: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and
+  `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and
+  `OIDC_CLIENT_SECRET` (with an optional `OIDC_LABEL`). The login page shows
+  one button for each provider, and `LOGIN_ALLOWED_EMAILS` is an optional
+  allow list. `app/common/providers.py` sends `state` and PKCE to every
+  provider. For OIDC it also sends a `nonce`, and it checks `iss`, `aud`,
+  `azp`, `exp`, and `nonce` in the ID token. GitHub gives the numeric user id
+  and the primary verified email. Users are keyed by
+  `identities(issuer, subject)`, never by the email; a new identity joins the
+  user with the same verified email, so one user can sign in with Google and
+  GitHub. The tests sign in against `FakeProviders`.
 - The password kit moves to `stario-create add auth-password` and becomes
   closed accounts for an admin page: the accounts live in `LOGIN_ACCOUNTS`
   (`just password-hash <email>` prints one), there is no sign-up page, five

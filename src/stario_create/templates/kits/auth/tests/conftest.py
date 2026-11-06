@@ -7,33 +7,36 @@ import pytest
 from stario import json
 from stario.testing import TestClient
 
-from app.common.oidc import Http
+from app.common.providers import GOOGLE, Http
 from app.features.login.urls import LOGIN_CALLBACK, LOGIN_START
 from app.main import bootstrap
 
-ISSUER = "https://issuer.test"
 
+class FakeProviders(Http):
+    """Google and GitHub. The code is "<email> <nonce>": that email signs in,
+    and the nonce goes into the Google ID token."""
 
-class FakeIssuer(Http):
-    """Discovery and the token endpoint. The code is "<email> <nonce>": the
-    email signs in, and the nonce goes into the ID token."""
+    async def get_json(self, url: str, headers: dict[str, str] | None = None) -> Any:
+        if url == f"{GOOGLE}/.well-known/openid-configuration":
+            return {
+                "issuer": GOOGLE,
+                "authorization_endpoint": f"{GOOGLE}/o/oauth2/v2/auth",
+                "token_endpoint": "https://oauth2.googleapis.com/token",
+            }
+        email = (headers or {})["Authorization"].removeprefix("Bearer ")
+        if url == "https://api.github.com/user":
+            return {"id": len(email), "login": email.split("@")[0], "name": None}
+        assert url == "https://api.github.com/user/emails"
+        return [{"email": email, "primary": True, "verified": True}]
 
-    async def get_json(self, url: str) -> dict[str, Any]:
-        assert url == f"{ISSUER}/.well-known/openid-configuration"
-        return {
-            "issuer": ISSUER,
-            "authorization_endpoint": f"{ISSUER}/authorize",
-            "token_endpoint": f"{ISSUER}/token",
-        }
-
-    async def post_form(
-        self, url: str, form: dict[str, str], headers: dict[str, str]
-    ) -> dict[str, Any]:
-        assert headers["Authorization"].startswith("Basic ")
+    async def post_form(self, url: str, form: dict[str, str], headers: dict[str, str]) -> Any:
         email, nonce = form["code"].split(" ")
+        if url == "https://github.com/login/oauth/access_token":
+            return {"access_token": email}
+        assert headers["Authorization"].startswith("Basic ")
         claims = {
-            "iss": ISSUER,
-            "aud": "client-id",
+            "iss": GOOGLE,
+            "aud": "google-id",
             "sub": f"sub-{email}",
             "email": email,
             "email_verified": True,
@@ -49,10 +52,11 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("PROJECT_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("SESSION_SECRET", "test-secret-test-secret-test-secret-test")
     monkeypatch.setenv("APP_DEV", "1")
-    monkeypatch.setenv("LOGIN_ISSUER", ISSUER)
-    monkeypatch.setenv("LOGIN_CLIENT_ID", "client-id")
-    monkeypatch.setenv("LOGIN_CLIENT_SECRET", "client-secret")
-    monkeypatch.setattr("app.main.Http", FakeIssuer)
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "google-secret")
+    monkeypatch.setenv("GITHUB_CLIENT_ID", "github-id")
+    monkeypatch.setenv("GITHUB_CLIENT_SECRET", "github-secret")
+    monkeypatch.setattr("app.main.Http", FakeProviders)
     return monkeypatch
 
 
@@ -62,19 +66,21 @@ async def client(env):
         yield c
 
 
-async def start(client, next_url="/") -> dict[str, str]:
-    """POST the login button; return the query of the redirect to the issuer."""
-    r = await client.post(LOGIN_START.href(), data={"next": next_url}, follow_redirects=False)
+async def start(client, provider="google", next_url="/") -> dict[str, str]:
+    """POST a login button; return the query of the redirect to the provider."""
+    r = await client.post(
+        LOGIN_START.href(provider), data={"next": next_url}, follow_redirects=False
+    )
     assert r.status_code == 303
     return {k: v[0] for k, v in parse_qs(urlsplit(str(r.headers.get("location"))).query).items()}
 
 
-async def login(client, email="ada@example.com", next_url="/"):
-    """Sign in as the issuer would: the start, then the callback with a code."""
-    query = await start(client, next_url)
-    code = f"{email} {query['nonce']}"
+async def login(client, email="ada@example.com", provider="google", next_url="/"):
+    """Sign in as the provider would: the start, then the callback with a code."""
+    query = await start(client, provider, next_url)
+    code = f"{email} {query.get('nonce', '-')}"
     return await client.get(
-        LOGIN_CALLBACK.href(),
+        LOGIN_CALLBACK.href(provider),
         params={"code": code, "state": query["state"]},
         follow_redirects=False,
     )

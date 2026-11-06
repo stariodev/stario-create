@@ -36,15 +36,15 @@ class Kit:
 
 KITS: dict[str, Kit] = {
     "auth": Kit(
-        help="sign-in with OpenID Connect (Google or any issuer), a session cookie, logout, tests",
+        help="sign-in with Google, GitHub, or any OpenID Connect issuer; a session cookie; tests",
         # SignedCookie is new in stario 5.4.0.
         deps=("stario>=5.4.0,<6", "litewriter>=0.3.2,<0.4"),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
-            "Create an OAuth client at the issuer (Google: Google Auth Platform, Clients, Web).",
-            "Register the callback: https://<host>/login/callback, and "
-            "http://localhost:8000/login/callback for the laptop.",
-            "Set LOGIN_CLIENT_ID and LOGIN_CLIENT_SECRET in .env. LOGIN_ISSUER defaults to Google.",
+            "Create an OAuth client at each provider (Google: Google Auth Platform, Clients, Web).",
+            "Register its callback: https://<host>/login/<provider>/callback, and "
+            "http://localhost:8000/login/<provider>/callback for the laptop.",
+            "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (or GITHUB_, or OIDC_ with OIDC_ISSUER).",
             "Put APP_DEV=1 in .env on a laptop, so the cookies and the callback work over plain HTTP.",
             'Protect pages under /app, or add app.use("/todos", session.require).',
         ),

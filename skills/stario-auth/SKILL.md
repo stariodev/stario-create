@@ -1,6 +1,6 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app - sign-in with OpenID Connect (Google or any issuer), a signed session cookie, protected pages, rows that belong to one user, and closed password accounts for an admin page. Use when the user asks for login, sign-in, accounts, sessions, "who is the user", per-user data, an allow list, or a page only some users can open. The code comes from `stario-create add auth` or `add auth-password`; this skill says which kit, how to wire it, and what not to change.
+description: Accounts in a Stario app - sign-in with Google, GitHub, or any OpenID Connect issuer, a signed session cookie, protected pages, rows that belong to one user, and closed password accounts for an admin page. Use when the user asks for login, sign-in, accounts, sessions, "who is the user", per-user data, an allow list, or a page only some users can open. The code comes from `stario-create add auth` or `add auth-password`; this skill says which kit, how to wire it, and what not to change.
 ---
 
 # Accounts
@@ -9,12 +9,12 @@ Do not write sign-in or the session by hand. Pick the kit:
 
 | The app | Kit |
 | --- | --- |
-| Any app with users: public, paid, private, or a family tool | `add auth`: sign-in with OpenID Connect. The default. |
+| Any app with users: public, paid, private, or a family tool | `add auth`: sign-in with Google, GitHub, or an OIDC issuer. The default. |
 | One admin page, or a tool for a few known people, with no issuer | `add auth-password`: closed accounts from the env. |
 
-Do not build open sign-up with an email and a password. It needs an email check, a password reset, a rate limit, and a check for leaked passwords. The issuer already does all of them. When the developer asks for password sign-up, say this and offer `add auth`. Build it only when they insist, and list the missing parts in `## This app`.
+Do not build open sign-up with an email and a password. It needs an email check, a password reset, a rate limit, and a check for leaked passwords. The provider already does all of them. When the developer asks for password sign-up, say this and offer `add auth`. Build it only when they insist, and list the missing parts in `## This app`.
 
-## Sign-in with OpenID Connect
+## Sign-in with providers
 
 Run the kit in the root of the app:
 
@@ -26,39 +26,40 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/oidc.py` | `Issuer`: discovery, the redirect, the code exchange, and the checks of the ID token. `Flow`: state, nonce, PKCE. `Http`: the two calls, which tests replace. |
+| `app/common/providers.py` | `Issuer` (Google or any OIDC issuer) and `GitHub`: each has `authorize_url` and `identity`. `Flow`: state, nonce, PKCE. `Http`: the calls, which tests replace. |
 | `app/common/session.py` | `Session`: the signed cookie, `attach`, `require`. `current_user(c)`. `local_path(url)`. |
-| `app/features/login/` | `GET /login`, `POST /login` (to the issuer), `GET /login/callback`, `POST /logout`, and the `users` and `identities` tables in `data.py`. |
-| `app/config.py` | `login_issuer`, `login_client_id`, `login_client_secret`, `login_allowed_emails`, `session_secret`, `app_dev`. |
-| `tests/conftest.py`, `tests/test_login.py` | `FakeIssuer`, a `login(client, email=...)` helper, and the tests. |
+| `app/features/login/` | `GET /login`, `POST /login/{provider}`, `GET /login/{provider}/callback`, `POST /logout`, and the `users` and `identities` tables in `data.py`. |
+| `app/config.py` | One client pair for each provider, `login_allowed_emails`, `session_secret`, `app_dev`. |
+| `tests/conftest.py`, `tests/test_login.py` | `FakeProviders`, a `login(client, email=..., provider=...)` helper, and the tests. |
 
 A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read that file and merge its lines into yours.
 
 Then:
 
-1. Create an OAuth client at the issuer. Google: Google Auth Platform, Clients, Web application.
-2. Register the callback for each host: `https://<host>/login/callback`, and `http://localhost:8000/login/callback` for the laptop.
-3. Put `SESSION_SECRET` (32+ random characters), `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET`, and `APP_DEV=1` in `.env`. On Yard: `yard env edit --app <name>`, with no `APP_DEV`.
+1. Create an OAuth client at each provider. Google: Google Auth Platform, Clients, Web application. GitHub: Settings, Developer settings, OAuth Apps.
+2. Register the callback for each host: `https://<host>/login/<provider>/callback`, and `http://localhost:8000/login/<provider>/callback` for the laptop.
+3. Put `SESSION_SECRET` (32+ random characters), the client pairs, and `APP_DEV=1` in `.env`. On Yard: `yard env edit --app <name>`, with no `APP_DEV`.
 4. Run `just check`.
 
-The env:
+The env. A provider is on when both of its values are set, and the app needs at least one:
 
-| Variable | Meaning |
+| Variables | Provider |
 | --- | --- |
-| `LOGIN_ISSUER` | The issuer URL. Default `https://accounts.google.com`. |
-| `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET` | The OAuth client. The app does not start without them. |
-| `LOGIN_ALLOWED_EMAILS` | Comma-separated verified emails that may sign in. Empty: every account of the issuer. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google, as `/login/google`. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, as `/login/github`. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL` | Any other OIDC issuer with discovery (Rauthy, Pocket ID, Keycloak, GitLab), as `/login/oidc`. The label is the button text; it defaults to the host. |
+| `LOGIN_ALLOWED_EMAILS` | Comma-separated verified emails that may sign in. Empty: every account. |
 
-Rules for the OIDC kit:
+Rules for this kit:
 
-- Any issuer with discovery works: Google, Microsoft, GitLab, Rauthy, Pocket ID, Zitadel, Keycloak. A change of issuer is a change of `LOGIN_ISSUER` and the client, not of code.
-- GitHub and Facebook are not OIDC. Use an issuer that brokers them, such as Rauthy. Do not add an adapter for one provider.
+- The login page shows one button for each provider that is on. The flow cookie holds the provider name, so a callback cannot switch providers.
+- Another provider that is not OIDC (Facebook, Discord): add a class with `name`, `label`, `authorize_url`, and `identity`, like `GitHub`. Or use an issuer that brokers it, such as Rauthy.
 - The key of a user is `identities(issuer, subject)` to `users.id`. Never key a user, a row, or a session on the email: an email can change.
-- A new identity joins the user with the same verified email. Thus a move to a new issuer keeps the accounts.
+- A new identity joins the user with the same verified email. Thus one user can sign in with Google and GitHub.
 - `Issuer.identity` checks `iss`, `aud`, `azp`, `exp`, and `nonce`. Keep each check. Never decode an ID token anywhere else.
-- The callback URL comes from the `Host` header. The issuer accepts only registered URLs, so register every host of the app.
+- The callback URL comes from the `Host` header. A provider accepts only registered URLs, so register every host of the app.
 - An allow list from the database (invited emails, project members): replace the `self.allowed` check in `callback` with a query.
-- Test a sign-in with `await login(client, email="bob@example.com")`. It runs the real routes against `FakeIssuer`.
+- Test a sign-in with `await login(client, email="bob@example.com", provider="github")`. It runs the real routes against `FakeProviders`.
 
 ## Closed password accounts
 
@@ -102,7 +103,7 @@ tx.execute("CREATE INDEX IF NOT EXISTS todos_user ON todos(user_id)")
 ## Rules
 
 - The cookie holds the user id and an expiry, signed. It holds no profile, no password, no role, no row.
-- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`, so the callback from the issuer carries the flow cookie.
+- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`, so the callback from the provider carries the flow cookie.
 - A protected page uses `require`. A handler never reads the cookie itself. It calls `current_user(c)`.
 - A redirect to a `next` value goes through `local_path`, so it stays on this site.
 - Logout is a `POST`.

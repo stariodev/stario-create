@@ -1,7 +1,7 @@
 from litewriter import Tx
 from stario.json import dumps
 
-from app.common.oidc import Identity
+from app.common.providers import Identity
 
 
 def schema(tx: Tx) -> None:
@@ -21,7 +21,7 @@ def schema(tx: Tx) -> None:
 
 def add_login(tx: Tx, who: Identity, new_id: str) -> str:
     """The user id of `who`. A new identity joins the user with the same
-    verified email, so a new issuer keeps the old accounts. Else it is a new user."""
+    verified email, so one user can sign in with Google and GitHub. Else it is a new user."""
     data = dumps({"email": who.email, "name": who.name})
     row = tx.one(
         "SELECT user_id FROM identities WHERE issuer = :issuer AND subject = :subject",

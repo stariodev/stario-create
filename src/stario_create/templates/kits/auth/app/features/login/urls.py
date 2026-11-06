@@ -1,7 +1,7 @@
 from stario import Route
 
 LOGIN = Route("GET /login")
-LOGIN_START = Route("POST /login")
-# The issuer sends the browser back here. Register this URL at the issuer.
-LOGIN_CALLBACK = Route("GET /login/callback")
+LOGIN_START = Route("POST /login/{provider}")
+# The provider sends the browser back here. Register this URL at each provider.
+LOGIN_CALLBACK = Route("GET /login/{provider}/callback")
 LOGOUT = Route("POST /logout")

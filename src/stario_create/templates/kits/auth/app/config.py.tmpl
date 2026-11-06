@@ -15,10 +15,16 @@ class Config:
     app_name: str = "$app_name"
     # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
     data_dir: Path = Path("data")
-    # Sign-in with OpenID Connect. Any issuer with discovery works.
-    login_issuer: str = "https://accounts.google.com"
-    login_client_id: str = ""
-    login_client_secret: str = ""
+    # Sign-in providers. Each one is on when its client id and secret are set.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    # Any other OpenID Connect issuer with discovery: Rauthy, Pocket ID, Keycloak, ...
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_label: str = ""
     # Emails that may sign in, comma-separated. Empty: every account of the issuer.
     login_allowed_emails: str = ""
     session_secret: str = ""
@@ -49,7 +55,17 @@ class Config:
         config = cls(**values)
         if len(config.session_secret) < 32:
             raise RuntimeError("Set SESSION_SECRET to 32+ random characters.")
-        if not config.login_client_id or not config.login_client_secret:
-            raise RuntimeError("Set LOGIN_CLIENT_ID and LOGIN_CLIENT_SECRET from your OIDC issuer.")
+        pairs = {
+            "GOOGLE": (config.google_client_id, config.google_client_secret),
+            "GITHUB": (config.github_client_id, config.github_client_secret),
+            "OIDC": (config.oidc_client_id, config.oidc_client_secret),
+        }
+        for name, (client_id, secret) in pairs.items():
+            if bool(client_id) != bool(secret):
+                raise RuntimeError(f"Set both {name}_CLIENT_ID and {name}_CLIENT_SECRET.")
+        if config.oidc_client_id and not config.oidc_issuer:
+            raise RuntimeError("OIDC_CLIENT_ID is set: set OIDC_ISSUER to the issuer URL.")
+        if not any(client_id for client_id, _ in pairs.values()):
+            raise RuntimeError("Set GOOGLE_, GITHUB_, or OIDC_CLIENT_ID and _CLIENT_SECRET.")
         config.data_dir.mkdir(parents=True, exist_ok=True)
         return config

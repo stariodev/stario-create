@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import urlsplit
 
 from litewriter import LiteWriter, Tx
 from stario import App, Span, serve
@@ -6,7 +7,7 @@ from stario.cookies import SignedCookie
 from stario.http import same_origin, security_headers
 
 from app.assets import ASSETS
-from app.common.oidc import Http, Issuer
+from app.common.providers import GOOGLE, GitHub, Http, Issuer, Provider
 from app.common.session import Session
 from app.config import Config
 from app.features.home.handlers import HomePage
@@ -33,9 +34,33 @@ async def bootstrap(app: App, span: Span):
         flow = SignedCookie(
             "__Host-login" if secure else "login", keys=keys, secure=secure, max_age=600
         )
-        issuer = Issuer(
-            config.login_issuer, config.login_client_id, config.login_client_secret, Http()
-        )
+        http = Http()
+        providers: list[Provider] = []
+        if config.google_client_id:
+            providers.append(
+                Issuer(
+                    "google",
+                    "Google",
+                    GOOGLE,
+                    config.google_client_id,
+                    config.google_client_secret,
+                    http,
+                )
+            )
+        if config.github_client_id:
+            providers.append(GitHub(config.github_client_id, config.github_client_secret, http))
+        if config.oidc_client_id:
+            label = config.oidc_label or urlsplit(config.oidc_issuer).netloc
+            providers.append(
+                Issuer(
+                    "oidc",
+                    label,
+                    config.oidc_issuer,
+                    config.oidc_client_id,
+                    config.oidc_client_secret,
+                    http,
+                )
+            )
         app.use("/", same_origin(), security_headers(), session.attach)
         app.use("/app", session.require)
         span.attrs(await ASSETS.attach(app))
@@ -43,7 +68,7 @@ async def bootstrap(app: App, span: Span):
         LoginPage(
             db,
             session,
-            issuer,
+            {p.name: p for p in providers},
             flow,
             allowed=config.allowed_emails,
             scheme="https" if secure else "http",

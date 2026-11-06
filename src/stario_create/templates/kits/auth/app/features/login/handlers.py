@@ -1,5 +1,6 @@
 import hmac
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from litewriter import LiteWriter
@@ -8,7 +9,7 @@ from stario.cookies import SignedCookie
 from stario.datastar import SSE
 from stario.forms import read_form
 
-from app.common.oidc import Flow, Issuer, LoginFailed
+from app.common.providers import Flow, LoginFailed, Provider
 from app.common.session import Session, current_user, local_path
 from app.features.home.urls import HOME
 from app.features.login.data import add_login
@@ -20,7 +21,7 @@ from app.features.login.views import render
 class LoginPage:
     db: LiteWriter
     session: Session
-    issuer: Issuer
+    providers: Mapping[str, Provider]
     flow: SignedCookie
     allowed: frozenset[str]
     scheme: str
@@ -36,23 +37,32 @@ class LoginPage:
             w.redirect(HOME.href(), status=303)
             return
         next_url = local_path(c.req.query.get("next", ""))
-        w.html(render(self.issuer.label, next_url, str(c.req.query.get("error", ""))))
+        error = str(c.req.query.get("error", ""))
+        w.html(render(list(self.providers.values()), next_url, error))
 
     async def start(self, c: Context, w: Writer) -> None:
+        provider = self.providers.get(c.match.params["provider"])
+        if provider is None:
+            w.text("unknown provider", status=404)
+            return
         with await read_form(c.req) as form:
             next_url = local_path(form.get("next", ""))
         flow = Flow.new()
         try:
-            url = await self.issuer.authorize_url(self._callback_url(c), flow)
+            url = await provider.authorize_url(self._callback_url(c, provider), flow)
         except LoginFailed as e:
             self._fail(c, w, "failed", str(e))
             return
         data = {"state": flow.state, "nonce": flow.nonce, "verifier": flow.verifier}
-        self.flow.set(w, data | {"next": next_url})
+        self.flow.set(w, data | {"provider": provider.name, "next": next_url})
         w.redirect(url, status=303)
 
     async def callback(self, c: Context, w: Writer) -> None:
-        # A GET that signs in: the state check ties it to the start of this browser.
+        # A GET that signs in: the state check ties it to the start in this browser.
+        provider = self.providers.get(c.match.params["provider"])
+        if provider is None:
+            w.text("unknown provider", status=404)
+            return
         saved = self.flow.get(c.req)
         self.flow.delete(w)
         if c.req.query.get("error"):
@@ -61,12 +71,16 @@ class LoginPage:
         data = saved.data if saved is not None else {}
         state = str(c.req.query.get("state", ""))
         code = str(c.req.query.get("code", ""))
-        if not code or not hmac.compare_digest(str(data.get("state", "")), state):
-            self._fail(c, w, "expired", "no flow cookie, or another state")
+        if (
+            not code
+            or data.get("provider") != provider.name
+            or not hmac.compare_digest(str(data.get("state", "")), state)
+        ):
+            self._fail(c, w, "expired", "no flow cookie, another state, or another provider")
             return
         flow = Flow(data["state"], data["nonce"], data["verifier"])
         try:
-            who = await self.issuer.identity(code, self._callback_url(c), flow)
+            who = await provider.identity(code, self._callback_url(c, provider), flow)
         except LoginFailed as e:
             self._fail(c, w, "failed", str(e))
             return
@@ -84,9 +98,10 @@ class LoginPage:
         else:
             w.redirect(LOGIN.href(), status=303)
 
-    def _callback_url(self, c: Context) -> str:
-        # The issuer accepts only the callback URLs registered there, so a forged Host fails.
-        return f"{self.scheme}://{c.req.headers.get('host', '')}{LOGIN_CALLBACK.href()}"
+    def _callback_url(self, c: Context, provider: Provider) -> str:
+        # A provider accepts only the callback URLs registered there, so a forged Host fails.
+        host = c.req.headers.get("host", "")
+        return f"{self.scheme}://{host}{LOGIN_CALLBACK.href(provider.name)}"
 
     def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
         c.span.attrs({"login.error": error, "login.reason": reason})
