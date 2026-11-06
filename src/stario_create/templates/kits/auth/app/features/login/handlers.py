@@ -106,7 +106,9 @@ class LoginPage:
     def _callback_url(self, c: Context, name: str) -> str:
         # The provider compares it with the callback URLs registered there, and the
         # exchange needs the client secret, so a forged Host cannot finish a sign-in.
-        return f"{self.scheme}://{c.req.host}{LOGIN_CALLBACK.href(name)}"
+        # The Host header keeps the port (127.0.0.1:8000); c.req.host drops it.
+        host = c.req.headers.get("host") or c.req.host
+        return f"{self.scheme}://{host}{LOGIN_CALLBACK.href(name)}"
 
     def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
         c.span.attrs({"login.error": error, "login.reason": reason})

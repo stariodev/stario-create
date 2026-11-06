@@ -32,6 +32,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - The callback keeps the flow cookie until the state matches, so a forged
   GET from another site cannot end an open sign-in. A failed token answer
   logs its key names only, never the tokens.
+- The callback URL comes from the Host header, so it keeps the port of
+  `http://127.0.0.1:8000` on a laptop. `c.req.host` drops the port.
 - The tests sign in against `FakeProviders`, which checks PKCE, the
   redirect URI, and the client secret.
 - The password kit is removed. An admin signs in with a provider too: the

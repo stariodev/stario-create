@@ -48,6 +48,18 @@ async def test_the_start_sends_state_nonce_and_pkce(client):
     assert query["state"] and query["nonce"]
 
 
+async def test_the_callback_url_keeps_the_port(client):
+    r = await client.post(
+        LOGIN_START.href("google"),
+        data={"next": "/"},
+        headers={"host": "127.0.0.1:8000"},
+        follow_redirects=False,
+    )
+    assert "redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Flogin%2Fgoogle%2Fcallback" in str(
+        r.headers.get("location")
+    )
+
+
 async def test_login_then_logout(client):
     assert (await login(client)).headers.get("location") == "/"
     assert (await client.get(PROTECTED, follow_redirects=False)).status_code == 404
