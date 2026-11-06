@@ -1,39 +1,37 @@
 from stario import h
-from stario.datastar import at, data
 from stario.markup import HtmlElement
 
 from app.common.shell import page
-from app.features.login.urls import LOGIN_POST
-from app.features.signup.urls import SIGNUP
+from app.features.login.urls import LOGIN_START
+
+# The button text for each provider name in app/main.py.
+# Sign out is a plain form anywhere: h.Form({"method": "post", "action": LOGOUT.href()}, ...)
+LABELS = {"google": "Google", "github": "GitHub"}
+
+ERRORS = {
+    "denied": "The sign-in was cancelled.",
+    "expired": "The sign-in did not finish. Try again.",
+    "failed": "The sign-in did not work. Try again.",
+    "not_allowed": "This account has no access.",
+}
 
 
-def render() -> HtmlElement:
+def render(providers: list[str], next_url: str, error: str) -> HtmlElement:
+    message = ERRORS.get(error)
     return page(
         "Sign in",
         h.Main(
             {"id": "login"},
-            data.signals({"email": "", "password": "", "_error": ""}, if_missing=True),
             h.H1("Sign in"),
-            h.Form(
-                data.on("submit", at.post(LOGIN_POST.href()), prevent=True),
-                data.indicator("_sending"),
-                h.Label(
-                    "Email",
-                    h.Input(
-                        {"type": "email", "required": True, "autocomplete": "username"},
-                        data.bind("email"),
-                    ),
-                ),
-                h.Label(
-                    "Password",
-                    h.Input(
-                        {"type": "password", "required": True, "autocomplete": "current-password"},
-                        data.bind("password"),
-                    ),
-                ),
-                h.P({"role": "alert"}, data.show("$_error"), data.text("$_error")),
-                h.Button({"type": "submit"}, data.attr("disabled", "$_sending"), "Sign in"),
-            ),
-            h.P(h.A({"href": SIGNUP.href()}, "Create an account")),
+            h.P({"role": "alert"}, message) if message else None,
+            # Plain forms: the answer is a redirect to the provider.
+            [
+                h.Form(
+                    {"method": "post", "action": LOGIN_START.href(name)},
+                    h.Input({"type": "hidden", "name": "next", "value": next_url}),
+                    h.Button({"type": "submit"}, f"Continue with {LABELS.get(name, name)}"),
+                )
+                for name in providers
+            ],
         ),
     )

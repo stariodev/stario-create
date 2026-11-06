@@ -29,8 +29,11 @@ def test_auth_fills_the_app_name_and_replaces_untouched_files(app: Path):
     config = (app / "app/config.py").read_text()
     assert '"demo"' in config
     assert "SESSION_SECRET" in config
-    assert "SignupPage" in (app / "app/main.py").read_text()
-    assert "SESSION_SECRET" in (app / "tests/conftest.py").read_text()
+    assert "google_client_id" in config
+    assert "GitHub(" in (app / "app/main.py").read_text()
+    assert "OIDC_" not in config
+    assert "FakeProviders" in (app / "tests/conftest.py").read_text()
+    assert not (app / "app/features/signup").exists()
 
 
 def test_a_changed_file_is_left_for_a_merge(app: Path):

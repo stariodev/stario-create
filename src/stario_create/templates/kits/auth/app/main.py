@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 
 from litewriter import LiteWriter, Tx
 from stario import App, Span, serve
@@ -7,13 +6,15 @@ from stario.cookies import SignedCookie
 from stario.http import same_origin, security_headers
 
 from app.assets import ASSETS
-from app.common.session import Session, hash_password
+from app.common.providers import Http, Provider
+from app.common.providers.github import GitHub
+from app.common.providers.google import Google
+from app.common.session import Session
 from app.config import Config
 from app.features.home.handlers import HomePage
 from app.features.login import data as login_data
 from app.features.login.handlers import LoginPage
 from app.features.login.urls import LOGIN
-from app.features.signup.handlers import SignupPage
 
 
 def schema(tx: Tx) -> None:
@@ -23,24 +24,36 @@ def schema(tx: Tx) -> None:
 async def bootstrap(app: App, span: Span):
     config = Config.from_env()
     async with LiteWriter(config.db_path, schema=schema, claim=30) as db:
-        if config.admin_email and login_data.count_users(db) == 0:
-            password_hash = await asyncio.to_thread(hash_password, config.admin_password)
-            await db.write(
-                login_data.add_user, str(uuid.uuid7()), config.admin_email, password_hash
-            )
+        secure = not config.app_dev
+        keys = [config.session_secret]
         # __Host- keeps a subdomain from setting the cookie; it needs Secure.
-        cookie = SignedCookie(
-            "session" if config.dev else "__Host-session",
-            keys=[config.session_secret],
-            secure=not config.dev,
+        session = Session(
+            SignedCookie("__Host-session" if secure else "session", keys=keys, secure=secure),
+            LOGIN.href(),
         )
-        session = Session(cookie, LOGIN.href())
+        # The state, nonce, and PKCE verifier of one sign-in, for 10 minutes.
+        flow = SignedCookie(
+            "__Host-login" if secure else "login", keys=keys, secure=secure, max_age=600
+        )
+        http = Http()
+        # Each provider is on when its client pair is set. The key is its name in /login/<name>.
+        providers: dict[str, Provider] = {}
+        if config.google_client_id:
+            providers["google"] = Google(config.google_client_id, config.google_client_secret, http)
+        if config.github_client_id:
+            providers["github"] = GitHub(config.github_client_id, config.github_client_secret, http)
         app.use("/", same_origin(), security_headers(), session.attach)
         app.use("/app", session.require)
         span.attrs(await ASSETS.attach(app))
         HomePage(config.app_name).register(app)
-        LoginPage(db, session).register(app)
-        SignupPage(db, session).register(app)
+        LoginPage(
+            db,
+            session,
+            providers,
+            flow,
+            allowed=config.allowed_emails,
+            scheme="https" if secure else "http",
+        ).register(app)
         yield
 
 

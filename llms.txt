@@ -17,7 +17,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 - [stario-jobs](https://stario.dev/skills/stario-jobs/SKILL.md): slow work as a job with its own span.
 - [stario-browser-check](https://stario.dev/skills/stario-browser-check/SKILL.md): the test for each question about HTML, and the rare browser script.
 - [stario-api](https://stario.dev/skills/stario-api/SKILL.md): every signature: `c`, `w`, `h.*`, Relay, TestClient, `data.*`, `at.*`, `SSE`.
-- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): `stario-create add auth`, protected pages, rows that belong to one user.
+- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): sign-in with Google and GitHub (`add auth`), admin access, protected pages, API tokens, rows that belong to one user.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
 - [stario-client](https://stario.dev/skills/stario-client/SKILL.md): where JavaScript goes, and how Python calls `app.<name>`.
