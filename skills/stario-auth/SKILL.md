@@ -26,9 +26,9 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/providers.py` | `Issuer` (Google or any OIDC issuer) and `GitHub`: each has `authorize_url` and `identity`. `Flow`: state, nonce, PKCE. `Http`: the calls, which tests replace. |
+| `app/common/providers.py` | `Issuer` (Google or any OIDC issuer) and `GitHub`. Each is a `Provider`: `authorize_url` and `identity`. `Flow`: state, nonce, PKCE. `Http`: the calls, which tests replace. |
 | `app/common/session.py` | `Session`: the signed cookie, `attach`, `require`. `current_user(c)`. `local_path(url)`. |
-| `app/features/login/` | `GET /login`, `POST /login/{provider}`, `GET /login/{provider}/callback`, `POST /logout`, and the `users` and `identities` tables in `data.py`. |
+| `app/features/login/` | `GET /login`, `POST /login/{provider}`, `GET /login/{provider}/callback`, `POST /logout`, the button text in `views.py` (`LABELS`), and the `users` and `identities` tables in `data.py`. |
 | `app/config.py` | One client pair for each provider, `login_allowed_emails`, `session_secret`, `app_dev`. |
 | `tests/conftest.py`, `tests/test_login.py` | `FakeProviders`, a `login(client, email=..., provider=...)` helper, and the tests. |
 
@@ -47,13 +47,13 @@ The env. A provider is on when both of its values are set, and the app needs at 
 | --- | --- |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google, as `/login/google`. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, as `/login/github`. |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL` | Any other OIDC issuer with discovery (Rauthy, Pocket ID, Keycloak, GitLab), as `/login/oidc`. The label is the button text; it defaults to the host. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Any other OIDC issuer with discovery (Rauthy, Pocket ID, Keycloak, GitLab), as `/login/oidc`. Write its button text in `LABELS`. |
 | `LOGIN_ALLOWED_EMAILS` | Comma-separated verified emails that may sign in. Empty: every account. |
 
 Rules for this kit:
 
-- The login page shows one button for each provider that is on. The flow cookie holds the provider name, so a callback cannot switch providers.
-- Another provider that is not OIDC (Facebook, Discord): add a class with `name`, `label`, `authorize_url`, and `identity`, like `GitHub`. Or use an issuer that brokers it, such as Rauthy.
+- `app/main.py` builds `providers: dict[str, Provider]`. The key is the name in the route. The login page shows one button for each key, with the text from `LABELS`. The flow cookie holds the name, so a callback cannot switch providers.
+- Another provider that is not OIDC (Facebook, Discord): write a class with `authorize_url` and `identity`, like `GitHub`, add it to the dict, and add its text to `LABELS`. Or use an issuer that brokers it, such as Rauthy.
 - The key of a user is `identities(issuer, subject)` to `users.id`. Never key a user, a row, or a session on the email: an email can change.
 - A new identity joins the user with the same verified email. Thus one user can sign in with Google and GitHub.
 - `Issuer.identity` checks `iss`, `aud`, `azp`, `exp`, and `nonce`. Keep each check. Never decode an ID token anywhere else.

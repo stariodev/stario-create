@@ -12,9 +12,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   OpenID Connect issuer with discovery. Each provider is on when its pair is
   set: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and
   `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and
-  `OIDC_CLIENT_SECRET` (with an optional `OIDC_LABEL`). The login page shows
-  one button for each provider, and `LOGIN_ALLOWED_EMAILS` is an optional
-  allow list. `app/common/providers.py` sends `state` and PKCE to every
+  `OIDC_CLIENT_SECRET`. `app/main.py` names each provider in a dict, and
+  the login page shows one button for each, with the text from `LABELS` in
+  `views.py`. `LOGIN_ALLOWED_EMAILS` is an optional allow list. `app/common/providers.py` sends `state` and PKCE to every
   provider. For OIDC it also sends a `nonce`, and it checks `iss`, `aud`,
   `azp`, `exp`, and `nonce` in the ID token. GitHub gives the numeric user id
   and the primary verified email. Users are keyed by

@@ -1,5 +1,4 @@
 import asyncio
-from urllib.parse import urlsplit
 
 from litewriter import LiteWriter, Tx
 from stario import App, Span, serve
@@ -35,31 +34,17 @@ async def bootstrap(app: App, span: Span):
             "__Host-login" if secure else "login", keys=keys, secure=secure, max_age=600
         )
         http = Http()
-        providers: list[Provider] = []
+        # Each provider is on when its client pair is set. The key is its name in /login/<name>.
+        providers: dict[str, Provider] = {}
         if config.google_client_id:
-            providers.append(
-                Issuer(
-                    "google",
-                    "Google",
-                    GOOGLE,
-                    config.google_client_id,
-                    config.google_client_secret,
-                    http,
-                )
+            providers["google"] = Issuer(
+                GOOGLE, config.google_client_id, config.google_client_secret, http
             )
         if config.github_client_id:
-            providers.append(GitHub(config.github_client_id, config.github_client_secret, http))
+            providers["github"] = GitHub(config.github_client_id, config.github_client_secret, http)
         if config.oidc_client_id:
-            label = config.oidc_label or urlsplit(config.oidc_issuer).netloc
-            providers.append(
-                Issuer(
-                    "oidc",
-                    label,
-                    config.oidc_issuer,
-                    config.oidc_client_id,
-                    config.oidc_client_secret,
-                    http,
-                )
+            providers["oidc"] = Issuer(
+                config.oidc_issuer, config.oidc_client_id, config.oidc_client_secret, http
             )
         app.use("/", same_origin(), security_headers(), session.attach)
         app.use("/app", session.require)
@@ -68,7 +53,7 @@ async def bootstrap(app: App, span: Span):
         LoginPage(
             db,
             session,
-            {p.name: p for p in providers},
+            providers,
             flow,
             allowed=config.allowed_emails,
             scheme="https" if secure else "http",

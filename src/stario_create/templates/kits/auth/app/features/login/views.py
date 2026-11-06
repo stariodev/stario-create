@@ -1,9 +1,11 @@
 from stario import h
 from stario.markup import HtmlElement
 
-from app.common.providers import Provider
 from app.common.shell import page
 from app.features.login.urls import LOGIN_START
+
+# The button text for each provider name in app/main.py. Name your OIDC issuer here.
+LABELS = {"google": "Google", "github": "GitHub", "oidc": "single sign-on"}
 
 ERRORS = {
     "denied": "The sign-in was cancelled.",
@@ -13,7 +15,7 @@ ERRORS = {
 }
 
 
-def render(providers: list[Provider], next_url: str, error: str) -> HtmlElement:
+def render(providers: list[str], next_url: str, error: str) -> HtmlElement:
     message = ERRORS.get(error)
     return page(
         "Sign in",
@@ -24,11 +26,11 @@ def render(providers: list[Provider], next_url: str, error: str) -> HtmlElement:
             # Plain forms: the answer is a redirect to the provider.
             [
                 h.Form(
-                    {"method": "post", "action": LOGIN_START.href(p.name)},
+                    {"method": "post", "action": LOGIN_START.href(name)},
                     h.Input({"type": "hidden", "name": "next", "value": next_url}),
-                    h.Button({"type": "submit"}, f"Continue with {p.label}"),
+                    h.Button({"type": "submit"}, f"Continue with {LABELS.get(name, name)}"),
                 )
-                for p in providers
+                for name in providers
             ],
         ),
     )

@@ -38,10 +38,11 @@ class LoginPage:
             return
         next_url = local_path(c.req.query.get("next", ""))
         error = str(c.req.query.get("error", ""))
-        w.html(render(list(self.providers.values()), next_url, error))
+        w.html(render(list(self.providers), next_url, error))
 
     async def start(self, c: Context, w: Writer) -> None:
-        provider = self.providers.get(c.match.params["provider"])
+        name = c.match.params["provider"]
+        provider = self.providers.get(name)
         if provider is None:
             w.text("unknown provider", status=404)
             return
@@ -49,17 +50,18 @@ class LoginPage:
             next_url = local_path(form.get("next", ""))
         flow = Flow.new()
         try:
-            url = await provider.authorize_url(self._callback_url(c, provider), flow)
+            url = await provider.authorize_url(self._callback_url(c, name), flow)
         except LoginFailed as e:
             self._fail(c, w, "failed", str(e))
             return
         data = {"state": flow.state, "nonce": flow.nonce, "verifier": flow.verifier}
-        self.flow.set(w, data | {"provider": provider.name, "next": next_url})
+        self.flow.set(w, data | {"provider": name, "next": next_url})
         w.redirect(url, status=303)
 
     async def callback(self, c: Context, w: Writer) -> None:
         # A GET that signs in: the state check ties it to the start in this browser.
-        provider = self.providers.get(c.match.params["provider"])
+        name = c.match.params["provider"]
+        provider = self.providers.get(name)
         if provider is None:
             w.text("unknown provider", status=404)
             return
@@ -73,14 +75,14 @@ class LoginPage:
         code = str(c.req.query.get("code", ""))
         if (
             not code
-            or data.get("provider") != provider.name
+            or data.get("provider") != name
             or not hmac.compare_digest(str(data.get("state", "")), state)
         ):
             self._fail(c, w, "expired", "no flow cookie, another state, or another provider")
             return
         flow = Flow(data["state"], data["nonce"], data["verifier"])
         try:
-            who = await provider.identity(code, self._callback_url(c, provider), flow)
+            who = await provider.identity(code, self._callback_url(c, name), flow)
         except LoginFailed as e:
             self._fail(c, w, "failed", str(e))
             return
@@ -98,10 +100,10 @@ class LoginPage:
         else:
             w.redirect(LOGIN.href(), status=303)
 
-    def _callback_url(self, c: Context, provider: Provider) -> str:
+    def _callback_url(self, c: Context, name: str) -> str:
         # A provider accepts only the callback URLs registered there, so a forged Host fails.
         host = c.req.headers.get("host", "")
-        return f"{self.scheme}://{host}{LOGIN_CALLBACK.href(provider.name)}"
+        return f"{self.scheme}://{host}{LOGIN_CALLBACK.href(name)}"
 
     def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
         c.span.attrs({"login.error": error, "login.reason": reason})

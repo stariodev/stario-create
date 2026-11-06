@@ -1,7 +1,8 @@
 """Sign-in providers: Google, GitHub, and any OpenID Connect issuer.
 
-Each provider has two steps: `authorize_url` sends the browser away, and
-`identity` turns the code from the callback into an `Identity`.
+A provider is two steps: `authorize_url` sends the browser away, and
+`identity` turns the code from the callback into an `Identity`. The app
+names each provider in a dict (`/login/<name>`); the page writes its label.
 
 For OIDC, the ID token comes straight from the token endpoint over TLS, so
 its signature needs no check (OpenID Connect Core 3.1.3.7). Its claims do:
@@ -79,12 +80,6 @@ def _send(request: urllib.request.Request) -> Any:
 
 
 class Provider(Protocol):
-    @property
-    def name(self) -> str: ...  # the route segment: /login/<name>
-
-    @property
-    def label(self) -> str: ...  # the text on the button
-
     async def authorize_url(self, redirect_uri: str, flow: Flow) -> str: ...
     async def identity(self, code: str, redirect_uri: str, flow: Flow) -> Identity: ...
 
@@ -94,8 +89,6 @@ class Issuer:
     """One OIDC issuer: Google, or any issuer with discovery. It reads discovery at
     the first sign-in."""
 
-    name: str
-    label: str
     url: str
     client_id: str
     client_secret: str = field(repr=False)
@@ -181,8 +174,6 @@ class GitHub:
     client_id: str
     client_secret: str = field(repr=False)
     http: Http = field(default_factory=Http)
-    name: str = "github"
-    label: str = "GitHub"
 
     async def authorize_url(self, redirect_uri: str, flow: Flow) -> str:
         query = {
