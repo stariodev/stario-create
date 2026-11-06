@@ -9,7 +9,6 @@ from app.assets import ASSETS
 from app.common.providers import Http, Provider
 from app.common.providers.github import GitHub
 from app.common.providers.google import Google
-from app.common.providers.oidc import OidcIssuer
 from app.common.session import Session
 from app.config import Config
 from app.features.home.handlers import HomePage
@@ -43,10 +42,6 @@ async def bootstrap(app: App, span: Span):
             providers["google"] = Google(config.google_client_id, config.google_client_secret, http)
         if config.github_client_id:
             providers["github"] = GitHub(config.github_client_id, config.github_client_secret, http)
-        if config.oidc_client_id:
-            providers["oidc"] = OidcIssuer(
-                config.oidc_issuer, config.oidc_client_id, config.oidc_client_secret, http
-            )
         app.use("/", same_origin(), security_headers(), session.attach)
         app.use("/app", session.require)
         span.attrs(await ASSETS.attach(app))

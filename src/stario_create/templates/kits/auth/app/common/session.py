@@ -16,10 +16,13 @@ def current_user(c: Context) -> str | None:
 
 
 def local_path(url: object, default: str = "/") -> str:
-    """`url` when it is a path on this site, else `default`. Stops an open redirect."""
+    """`url` when it is a path on this site, else `default`. Stops an open redirect,
+    and a control character that would break the Location header."""
     if not isinstance(url, str) or not url.startswith("/") or url.startswith("//"):
         return default
-    return default if "\\" in url else url
+    if "\\" in url or any(ord(ch) < 32 or ord(ch) == 127 for ch in url):
+        return default
+    return url
 
 
 @dataclass(frozen=True, slots=True)

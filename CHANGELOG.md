@@ -8,41 +8,48 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
-- `stario-create add auth` is now sign-in with Google, GitHub, or any
-  OpenID Connect issuer with discovery. Each provider is on when its pair is
-  set: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and
-  `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and
-  `OIDC_CLIENT_SECRET`. `LOGIN_ALLOWED_EMAILS` is an optional allow list.
-  `app/config.py` reads each variable by its name.
-- Each provider is one class in `app/common/providers/`: `Google`,
-  `GitHub`, and `OidcIssuer` for any other issuer. `app/main.py` names each
-  provider in a dict, and the login page shows one button for each, with the
-  text from `LABELS` in `views.py`.
-- Every provider gets `state` and PKCE. An OIDC provider also gets a
-  `nonce`, and the kit checks `iss`, `aud`, `azp`, `exp`, and `nonce` in the
-  ID token. Discovery must name the configured issuer, and its endpoints must
-  be HTTPS. GitHub gives the numeric user id and the primary verified email.
+- `stario-create add auth` is now sign-in with Google and GitHub. Each
+  provider is on when its pair is set: `GOOGLE_CLIENT_ID` and
+  `GOOGLE_CLIENT_SECRET`, or `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+  `LOGIN_ALLOWED_EMAILS` is an optional allow list. `app/config.py` reads
+  each variable by its name.
+- Each provider is one class in `app/common/providers/`: `Google` (on the
+  OpenID Connect code in `OidcIssuer`) and `GitHub`. `app/main.py` names
+  each provider in a dict, and the login page shows one button for each,
+  with the text from `LABELS` in `views.py`. Another issuer is a subclass of
+  `OidcIssuer` in its own file, and `OidcIssuer` refuses an `http://` URL.
+- Every provider gets `state` and PKCE. Google also gets a `nonce`, and the
+  kit checks `iss`, `aud`, `azp`, `exp`, `nonce`, and `sub` in the ID token.
+  Discovery must name the configured issuer, and its endpoints must be
+  HTTPS. GitHub gives the numeric user id and the primary verified email.
+  An email that is not ASCII is dropped, so lower case cannot fold it into
+  another address.
 - Users are keyed by `identities(issuer, subject)`, never by the email. A
   new identity joins a user only through a verified email from an issuer in
   `LINK_BY_EMAIL` (Google and GitHub), stored on the identity, so an
   unverified address can never claim an account. `get_user(db, user_id)`
   reads the name and the email.
+- The callback keeps the flow cookie until the state matches, so a forged
+  GET from another site cannot end an open sign-in. A failed token answer
+  logs its key names only, never the tokens.
 - The tests sign in against `FakeProviders`, which checks PKCE, the
   redirect URI, and the client secret.
-- The password kit moves to `stario-create add auth-password` and becomes
-  closed accounts for an admin page: the accounts live in `LOGIN_ACCOUNTS`
-  (`just password-hash <email>` prints one), there is no sign-up page, five
-  wrong passwords in 15 minutes lock an account, and an unknown email still
-  runs one hash, so the answer time does not show which accounts exist.
+- The password kit is removed. An admin signs in with a provider too: the
+  `stario-auth` skill shows an admin area on `ADMIN_EMAILS`, and passkeys
+  through Pocket ID or Rauthy as an issuer.
 - `session.require` sends a signed-out page load to
   `/login?next=<path and query>`, and `local_path` keeps that redirect on
-  the site. A visit past half of the session `max_age` sets the cookie
-  again, so an active user stays signed in.
-- The `stario-auth` skill makes OpenID Connect the default and tells the
-  agent not to build open password sign-up.
-- Apps that already have the old kit keep their files. An app that moves to
-  the new `add auth` must drop the old `users_email` unique index and the
-  `email` column of `users`: the new kit keeps the email in `users.data`.
+  the site and drops a control character. A visit past half of the session
+  `max_age` sets the cookie again, so an active user stays signed in.
+- The `stario-auth` skill makes provider sign-in the only way, tells the
+  agent not to build password sign-in, and shows API tokens: a random
+  token, shown once, stored as its SHA-256, sent as `Authorization: Bearer`.
+- Apps that already have the old kit keep their files. The new kit cannot
+  use the old `users` table, so an app that moves to it does three things:
+  it runs `DROP INDEX users_email` and
+  `ALTER TABLE users DROP COLUMN email`, and it sets a new `SESSION_SECRET`,
+  which ends the old sessions. Old users have no identity: each one gets a
+  new user id at the first sign-in, and the app moves their rows by hand.
 
 ## 5.11.0
 

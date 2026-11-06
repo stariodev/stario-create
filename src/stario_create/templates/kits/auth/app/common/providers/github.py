@@ -3,7 +3,7 @@ GitHub API, and state plus PKCE tie the callback to this browser."""
 
 import urllib.parse
 
-from app.common.providers import Flow, Http, Identity, LoginFailed
+from app.common.providers import Flow, Http, Identity, LoginFailed, plain_email
 
 GITHUB = "https://github.com"
 
@@ -40,7 +40,8 @@ class GitHub:
         # GitHub answers 200 with {"error": ...} when it refuses the code.
         token = tokens.get("access_token") if isinstance(tokens, dict) else None
         if not isinstance(token, str):
-            raise LoginFailed(f"GitHub gave no token: {tokens!r}")
+            error = tokens.get("error") if isinstance(tokens, dict) else None
+            raise LoginFailed(f"GitHub gave no token: {error!r}")
         headers = {"Authorization": f"Bearer {token}"}
         user = await self.http.get_json("https://api.github.com/user", headers)
         emails = await self.http.get_json("https://api.github.com/user/emails", headers)
@@ -52,7 +53,7 @@ class GitHub:
         return Identity(
             issuer=GITHUB,
             subject=str(user["id"]),
-            email=str(primary["email"]).strip().lower() if primary else "",
+            email=plain_email(primary["email"]) if primary else "",
             email_verified=primary is not None,
             name=str(user.get("name") or user.get("login") or ""),
         )

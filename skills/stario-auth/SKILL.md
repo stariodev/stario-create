@@ -1,18 +1,13 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app - sign-in with Google, GitHub, or any OpenID Connect issuer, a signed session cookie, protected pages, rows that belong to one user, and closed password accounts for an admin page. Use when the user asks for login, sign-in, accounts, sessions, "who is the user", per-user data, an allow list, or a page only some users can open. The code comes from `stario-create add auth` or `add auth-password`; this skill says which kit, how to wire it, and what not to change.
+description: Accounts in a Stario app - sign-in with Google and GitHub, a signed session cookie, protected pages, admin pages, API tokens, and rows that belong to one user. Use when the user asks for login, sign-in, accounts, sessions, "who is the user", per-user data, an allow list, an admin page, an API token, or a page only some users can open. The code comes from `stario-create add auth`; this skill says how to wire it and what not to change.
 ---
 
 # Accounts
 
-Do not write sign-in or the session by hand. Pick the kit:
+Do not write sign-in or the session by hand. Every app with users uses `add auth`: public, paid, private, a family tool, or one admin page.
 
-| The app | Kit |
-| --- | --- |
-| Any app with users: public, paid, private, or a family tool | `add auth`: sign-in with Google, GitHub, or an OIDC issuer. The default. |
-| One admin page, or a tool for a few known people, with no issuer | `add auth-password`: closed accounts from the env. |
-
-Do not build open sign-up with an email and a password. It needs an email check, a password reset, a rate limit, and a check for leaked passwords. The provider already does all of them. When the developer asks for password sign-up, say this and offer `add auth`. Build it only when they insist, and list the missing parts in `## This app`.
+Do not build password sign-in, not even for an admin. It needs an email check, a reset, a rate limit, and a check for leaked passwords. The provider already does all of them. When the developer asks for passwords, say this and offer `add auth`. Build it only when they insist, and list the missing parts in `## This app`.
 
 ## Sign-in with providers
 
@@ -26,7 +21,7 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/providers/` | One class for each provider: `google.py` (`Google`), `github.py` (`GitHub`), `oidc.py` (`OidcIssuer`, any other issuer). Each is a `Provider`: `authorize_url` and `identity`. `__init__.py`: `Provider`, `Identity`, `Flow` (state, nonce, PKCE), and `Http` (the calls, which tests replace). |
+| `app/common/providers/` | One class for each provider: `google.py` (`Google`, on the OIDC code in `oidc.py`) and `github.py` (`GitHub`, OAuth 2). Each is a `Provider`: `authorize_url` and `identity`. `__init__.py`: `Provider`, `Identity`, `Flow` (state, nonce, PKCE), and `Http` (the calls, which tests replace). |
 | `app/common/session.py` | `Session`: the signed cookie, `attach`, `require`. `current_user(c)`. `local_path(url)`. |
 | `app/features/login/` | `GET /login`, `POST /login/{provider}`, `GET /login/{provider}/callback`, `POST /logout`, the button text in `views.py` (`LABELS`), and in `data.py` the `users` and `identities` tables, `get_user`, and `LINK_BY_EMAIL`. |
 | `app/config.py` | `from_env` reads each variable by its name: the client pairs, `LOGIN_ALLOWED_EMAILS`, `SESSION_SECRET`, `APP_DEV`. |
@@ -47,40 +42,40 @@ The env. A provider is on when both of its values are set, and the app needs at 
 | --- | --- |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google, as `/login/google`. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, as `/login/github`. |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Any other OIDC issuer with discovery (Rauthy, Pocket ID, Keycloak, GitLab), as `/login/oidc`. Write its button text in `LABELS`. |
 | `LOGIN_ALLOWED_EMAILS` | Comma-separated verified emails that may sign in. Empty: every account. |
 
 Rules for this kit:
 
 - `app/main.py` builds `providers: dict[str, Provider]`. The key is the name in the route. The login page shows one button for each key, with the text from `LABELS`. The flow cookie holds the name, so a callback cannot switch providers.
-- When the app knows its OIDC issuer, name it before you register the callback: read `RAUTHY_ISSUER` and its pair, use `providers["rauthy"]`, and add a `LABELS` entry. Users are keyed by the issuer URL, so a rename keeps them.
-- Another provider that is not OIDC (Facebook, Discord): write a class in its own file in `app/common/providers/`, like `GitHub`. Read its env pair by name in `from_env`, add it to the dict, and add its text to `LABELS`. Or use an issuer that brokers it, such as Rauthy.
+- Another provider is a class in its own file in `app/common/providers/`. An OIDC issuer (Pocket ID, Rauthy) subclasses `OidcIssuer` with its URL, like `google.py`. Another OAuth provider copies `github.py`. Then read its pair by name in `from_env`, add both names to the pair check and the "at least one" check, add it to the dict, and add its text to `LABELS`.
 - The key of a user is `identities(issuer, subject)` to `users.id`. Never key a user, a row, or a session on the email: an email can change.
 - A new identity joins the user with the same verified email, but only when both come from an issuer in `LINK_BY_EMAIL` (Google and GitHub). Thus one user can sign in with both. Add your own issuer there only when its users cannot set any email they like.
-- `OidcIssuer` (and thus `Google`) checks that discovery names the configured issuer, that the endpoints are HTTPS, and `iss`, `aud`, `azp`, `exp`, and `nonce` in the ID token. Keep each check. Never decode an ID token anywhere else.
+- `OidcIssuer` refuses an `http://` issuer (except `localhost`). It checks that discovery names the issuer, that the endpoints are HTTPS, and `iss`, `aud`, `azp`, `exp`, `nonce`, and `sub`. Keep each check. Never decode an ID token anywhere else.
 - The callback URL comes from the request host. Register every host of the app at each provider.
 - "Signed in as": `get_user(db, current_user(c))` gives `id`, `email`, and `name`. Sign out is a plain form that posts to `LOGOUT.href()`.
 - An allow list from the database (invited emails, project members): replace the `self.allowed` check in `callback` with a query.
 - Test a sign-in with `await login(client, email="bob@example.com", provider="github")`. It runs the real routes against `FakeProviders`.
 
-## Closed password accounts
+## Admin pages
 
-```bash
-uvx stario-create@latest add auth-password
-```
+An admin is a user who signed in with a provider.
 
-It writes `app/common/session.py` (with `hash_password`, `check_password`, and `Tries`), `app/features/login/`, the config, the tests, and a `just password-hash` recipe. It has no sign-up page and no users table.
+- Only a few people use the whole app: set `LOGIN_ALLOWED_EMAILS`.
+- An admin area in a public app: read `ADMIN_EMAILS` in `from_env`. Add a middleware method on `/admin`, after `session.require`. It reads `get_user(db, current_user(c))` and answers 404 when the email is not in the set. That email is always a verified one.
+- Passkeys: run Pocket ID or Rauthy, and add it as an OIDC issuer. The app gets no passkey code.
 
-- The accounts live in `LOGIN_ACCOUNTS`: `email:hash,email:hash`. `just password-hash ada@example.com` asks for the password and prints one entry.
-- To add, remove, or reset an account, edit `LOGIN_ACCOUNTS` and restart the app.
-- The user id is the email.
-- Five wrong passwords in 15 minutes lock that account. Thus anyone can lock an account for 15 minutes, and "Too many tries" shows that the account exists. Both are acceptable for a few known accounts.
-- An unknown email still runs one hash, so the answer time does not show which accounts exist.
-- Use it for an admin page or a few known people only. An app with more users uses `add auth`.
+## API tokens
+
+A script or another service calls the JSON routes with a token. The browser keeps the cookie.
+
+- A signed-in user creates a token on a page. Make it `"<app>_" + secrets.token_urlsafe(32)`, and show it once.
+- Store only its SHA-256 in `api_tokens(hash PRIMARY KEY, user_id, name, created, used)`. The token is random, so a fast hash is enough.
+- The client sends `Authorization: Bearer <token>`. A middleware method in `session.py` on the API prefix hashes it, finds the row, and sets the user that `current_user(c)` reads. No row: 401 with `WWW-Authenticate: Bearer`.
+- To revoke a token, delete its row. The page lists each name, `created`, and `used`.
+- A caller with no user (a webhook, a cron): one secret in the env, compared with `hmac.compare_digest`.
+- Never put a token in a URL.
 
 ## Protect pages
-
-Both kits protect pages in the same way:
 
 - A new app keeps its protected pages under `/app`. One `app.use("/app", session.require)` covers each route below it, and its 404 and 405 answers too.
 - An app that already has pages keeps its URLs. Protect each page where it is: `app.use("/todos", session.require)`. Then set `PROTECTED` in `tests/test_login.py` to `/todos`.

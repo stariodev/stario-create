@@ -66,19 +66,22 @@ class LoginPage:
             w.text("unknown provider", status=404)
             return
         saved = self.flow.get(c.req)
+        data = saved.data if saved is not None else {}
+        state = str(c.req.query.get("state", ""))
+        # The flow cookie stays until a callback matches it, so a forged GET from
+        # another site cannot end a sign-in that is still open.
+        if data.get("provider") != name or not hmac.compare_digest(
+            str(data.get("state", "")), state
+        ):
+            self._fail(c, w, "expired", "no flow cookie, another state, or another provider")
+            return
         self.flow.delete(w)
         if c.req.query.get("error"):
             self._fail(c, w, "denied", str(c.req.query.get("error")))
             return
-        data = saved.data if saved is not None else {}
-        state = str(c.req.query.get("state", ""))
         code = str(c.req.query.get("code", ""))
-        if (
-            not code
-            or data.get("provider") != name
-            or not hmac.compare_digest(str(data.get("state", "")), state)
-        ):
-            self._fail(c, w, "expired", "no flow cookie, another state, or another provider")
+        if not code:
+            self._fail(c, w, "expired", "no code")
             return
         flow = Flow(data["state"], data["nonce"], data["verifier"])
         try:

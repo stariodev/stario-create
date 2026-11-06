@@ -2,8 +2,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.common.providers import is_secure
-
 
 @dataclass(frozen=True, slots=True)
 class Config:
@@ -17,10 +15,6 @@ class Config:
     google_client_secret: str = ""
     github_client_id: str = ""
     github_client_secret: str = ""
-    # Any other OpenID Connect issuer with discovery: Rauthy, Pocket ID, Keycloak, ...
-    oidc_issuer: str = ""
-    oidc_client_id: str = ""
-    oidc_client_secret: str = ""
     # Emails that may sign in. Empty: every account of the providers.
     allowed_emails: frozenset[str] = frozenset()
     session_secret: str = ""
@@ -41,9 +35,6 @@ class Config:
             google_client_secret=env.get("GOOGLE_CLIENT_SECRET", ""),
             github_client_id=env.get("GITHUB_CLIENT_ID", ""),
             github_client_secret=env.get("GITHUB_CLIENT_SECRET", ""),
-            oidc_issuer=env.get("OIDC_ISSUER", ""),
-            oidc_client_id=env.get("OIDC_CLIENT_ID", ""),
-            oidc_client_secret=env.get("OIDC_CLIENT_SECRET", ""),
             allowed_emails=frozenset(
                 e.strip().lower()
                 for e in env.get("LOGIN_ALLOWED_EMAILS", "").split(",")
@@ -58,11 +49,7 @@ class Config:
             raise RuntimeError("Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.")
         if bool(config.github_client_id) != bool(config.github_client_secret):
             raise RuntimeError("Set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.")
-        if bool(config.oidc_client_id) != bool(config.oidc_client_secret):
-            raise RuntimeError("Set both OIDC_CLIENT_ID and OIDC_CLIENT_SECRET.")
-        if config.oidc_client_id and not is_secure(config.oidc_issuer):
-            raise RuntimeError("OIDC_CLIENT_ID is set: set OIDC_ISSUER to an https:// URL.")
-        if not (config.google_client_id or config.github_client_id or config.oidc_client_id):
-            raise RuntimeError("Set GOOGLE_CLIENT_ID, GITHUB_CLIENT_ID, or OIDC_CLIENT_ID.")
+        if not (config.google_client_id or config.github_client_id):
+            raise RuntimeError("Set GOOGLE_CLIENT_ID or GITHUB_CLIENT_ID.")
         config.data_dir.mkdir(parents=True, exist_ok=True)
         return config

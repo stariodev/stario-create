@@ -4,9 +4,9 @@ from stario.markup import HtmlElement
 from app.common.shell import page
 from app.features.login.urls import LOGIN_START
 
-# The button text for each provider name in app/main.py. Name your OIDC issuer here.
+# The button text for each provider name in app/main.py.
 # Sign out is a plain form anywhere: h.Form({"method": "post", "action": LOGOUT.href()}, ...)
-LABELS = {"google": "Google", "github": "GitHub", "oidc": "single sign-on"}
+LABELS = {"google": "Google", "github": "GitHub"}
 
 ERRORS = {
     "denied": "The sign-in was cancelled.",

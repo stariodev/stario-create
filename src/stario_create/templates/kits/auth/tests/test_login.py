@@ -9,8 +9,9 @@ from stario import json
 from stario.testing import TestClient
 
 from app.common.providers import Flow, Http, LoginFailed
-from app.common.providers.google import GOOGLE
+from app.common.providers.google import GOOGLE, Google
 from app.common.providers.oidc import OidcIssuer
+from app.common.session import local_path
 from app.features.login.data import get_user, schema
 from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
 from app.main import bootstrap
@@ -112,8 +113,33 @@ async def test_a_failed_discovery_fails_the_sign_in(env):
         assert r.headers.get("location") == LOGIN.href(query={"error": "failed"})
 
 
-async def test_an_outside_next_goes_home(client):
-    r = await login(client, next_url="//evil.example")
+@pytest.mark.parametrize(
+    "url", ["//evil.example", "/\\evil.example", "/a\r\nSet-Cookie: x", "a", 3]
+)
+def test_local_path_keeps_only_a_clean_path_on_this_site(url):
+    assert local_path(url, "/home") == "/home"
+    assert local_path("/app?tab=2") == "/app?tab=2"
+
+
+async def test_an_outside_or_broken_next_goes_home(client):
+    assert (await login(client, next_url="//evil.example")).headers.get("location") == "/"
+    assert (await login(client, next_url="/a\r\nb")).headers.get("location") == "/"
+    r = await client.get(LOGIN.href(query={"next": "/a\nb"}), follow_redirects=False)
+    assert r.headers.get("location") == "/"
+
+
+async def test_a_forged_callback_keeps_the_open_sign_in(client):
+    query = await start(client)
+    r = await client.get(
+        LOGIN_CALLBACK.href("google"), params={"error": "x"}, follow_redirects=False
+    )
+    assert r.headers.get("location") == LOGIN.href(query={"error": "expired"})
+    parts = ["ada@example.com", query["nonce"], query["code_challenge"], query["redirect_uri"]]
+    r = await client.get(
+        LOGIN_CALLBACK.href("google"),
+        params={"code": " ".join(parts), "state": query["state"]},
+        follow_redirects=False,
+    )
     assert r.headers.get("location") == "/"
 
 
@@ -160,13 +186,17 @@ async def test_an_active_session_slides(client, monkeypatch):
 
 
 class Answers(Http):
-    def __init__(self, discovery: dict[str, Any], claims: dict[str, Any]) -> None:
+    def __init__(self, discovery: dict[str, Any], claims: dict[str, Any] | None) -> None:
         self.discovery, self.claims = discovery, claims
+        self.sent: tuple[dict[str, str], dict[str, str]] = ({}, {})
 
     async def get_json(self, url: str, headers: dict[str, str] | None = None) -> Any:
         return self.discovery
 
     async def post_form(self, url: str, form: dict[str, str], headers: dict[str, str]) -> Any:
+        self.sent = (form, headers)
+        if self.claims is None:
+            return {"access_token": "secret-token"}
         body = base64.urlsafe_b64encode(json.dumps(self.claims).encode()).decode()
         return {"id_token": f"h.{body}.s"}
 
@@ -181,21 +211,58 @@ GOOD = {"iss": ISSUER, "aud": "cid", "sub": "1", "exp": time.time() + 60, "nonce
 
 
 @pytest.mark.parametrize(
-    ("discovery", "claims"),
+    ("discovery", "claims", "reason"),
     [
-        (DISCOVERY, GOOD | {"iss": GOOGLE}),
-        (DISCOVERY, GOOD | {"aud": "another"}),
-        (DISCOVERY, GOOD | {"aud": ["cid", "another"]}),
-        (DISCOVERY, GOOD | {"exp": time.time() - 1}),
-        (DISCOVERY, GOOD | {"nonce": "other"}),
-        (DISCOVERY | {"issuer": GOOGLE}, GOOD),
-        (DISCOVERY | {"token_endpoint": "http://id.example/token"}, GOOD),
+        (DISCOVERY, GOOD | {"iss": GOOGLE}, "iss is"),
+        (DISCOVERY, GOOD | {"iss": [ISSUER]}, "iss is"),
+        (DISCOVERY, GOOD | {"aud": "another"}, "aud is"),
+        (DISCOVERY, GOOD | {"aud": ["cid", "another"]}, "azp is"),
+        (DISCOVERY, GOOD | {"exp": time.time() - 1}, "expired"),
+        (DISCOVERY, GOOD | {"nonce": "other"}, "nonce"),
+        (DISCOVERY, GOOD | {"sub": ""}, "no sub"),
+        (DISCOVERY | {"issuer": GOOGLE}, GOOD, "discovery says issuer"),
+        (DISCOVERY | {"token_endpoint": "http://id.example/token"}, GOOD, "not HTTPS"),
+        (DISCOVERY, None, r"no readable id_token: \['access_token'\]"),
     ],
 )
-async def test_the_issuer_checks(discovery, claims):
+async def test_the_issuer_checks(discovery, claims, reason):
     issuer = OidcIssuer(ISSUER, "cid", "secret", Answers(discovery, claims))
-    with pytest.raises(LoginFailed):
+    with pytest.raises(LoginFailed, match=reason) as failed:
         await issuer.identity("code", "https://app.example/cb", Flow("s", "n", "v"))
+    assert "secret-token" not in str(failed.value)
+
+
+def test_an_issuer_needs_https():
+    with pytest.raises(ValueError, match="https"):
+        OidcIssuer("http://id.example", "cid", "secret", Http())
+    OidcIssuer("http://127.0.0.1:9000", "cid", "secret", Http())
+
+
+async def test_google_accepts_its_issuer_without_the_scheme():
+    discovery = DISCOVERY | {"issuer": GOOGLE}
+    claims = GOOD | {"iss": "accounts.google.com"}
+    google = Google("cid", "secret", Answers(discovery, claims))
+    who = await google.identity("code", "https://app.example/cb", Flow("s", "n", "v"))
+    assert who.issuer == GOOGLE
+
+
+async def test_the_issuer_posts_the_secret_when_it_takes_no_basic_auth():
+    answers = Answers(
+        DISCOVERY | {"token_endpoint_auth_methods_supported": ["client_secret_post"]}, GOOD
+    )
+    await OidcIssuer(ISSUER, "cid", "secret", answers).identity(
+        "code", "https://app.example/cb", Flow("s", "n", "v")
+    )
+    form, headers = answers.sent
+    assert (form["client_id"], form["client_secret"]) == ("cid", "secret")
+    assert "Authorization" not in headers
+
+
+async def test_a_non_ascii_email_is_dropped():
+    claims = GOOD | {"email": "\u212aate@x.io", "email_verified": True}
+    issuer = OidcIssuer(ISSUER, "cid", "secret", Answers(DISCOVERY, claims))
+    who = await issuer.identity("code", "https://app.example/cb", Flow("s", "n", "v"))
+    assert who.email == ""
 
 
 async def test_the_issuer_accepts_good_claims():

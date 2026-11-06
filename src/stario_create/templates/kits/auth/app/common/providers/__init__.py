@@ -1,5 +1,5 @@
 """What every sign-in provider shares. Each provider is one class in its own file:
-`google.py`, `github.py`, and `oidc.py` for any other OpenID Connect issuer.
+`google.py` (OpenID Connect, on the code in `oidc.py`) and `github.py` (OAuth 2).
 
 A provider is two steps: `authorize_url` sends the browser away, and
 `identity` turns the code from the callback into an `Identity`. The app
@@ -57,6 +57,14 @@ class Flow:
 class Provider(Protocol):
     async def authorize_url(self, redirect_uri: str, flow: Flow) -> str: ...
     async def identity(self, code: str, redirect_uri: str, flow: Flow) -> Identity: ...
+
+
+def plain_email(raw: object) -> str:
+    """The email in lower case, or "" when it is not ASCII. Lower case folds some
+    Unicode letters into ASCII ("K", the Kelvin sign, becomes "k"), and the allow
+    list and the join compare emails."""
+    email = str(raw or "").strip()
+    return email.lower() if email.isascii() else ""
 
 
 def is_secure(url: str) -> bool:

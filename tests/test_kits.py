@@ -30,15 +30,9 @@ def test_auth_fills_the_app_name_and_replaces_untouched_files(app: Path):
     assert '"demo"' in config
     assert "SESSION_SECRET" in config
     assert "google_client_id" in config
-    assert "Issuer(" in (app / "app/main.py").read_text()
+    assert "GitHub(" in (app / "app/main.py").read_text()
+    assert "OIDC_" not in config
     assert "FakeProviders" in (app / "tests/conftest.py").read_text()
-    assert not (app / "app/features/signup").exists()
-
-
-def test_auth_password_has_no_sign_up_and_a_hash_recipe(app: Path):
-    add_kit(app, "auth-password")
-    assert "LOGIN_ACCOUNTS" in (app / "app/config.py").read_text()
-    assert "\npassword-hash email:" in (app / "justfile").read_text()
     assert not (app / "app/features/signup").exists()
 
 
