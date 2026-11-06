@@ -26,10 +26,10 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/providers.py` | `Issuer` (Google or any OIDC issuer) and `GitHub`. Each is a `Provider`: `authorize_url` and `identity`. `Flow`: state, nonce, PKCE. `Http`: the calls, which tests replace. |
+| `app/common/providers/` | One class for each provider: `google.py` (`Google`), `github.py` (`GitHub`), `oidc.py` (`OidcIssuer`, any other issuer). Each is a `Provider`: `authorize_url` and `identity`. `__init__.py`: `Provider`, `Identity`, `Flow` (state, nonce, PKCE), and `Http` (the calls, which tests replace). |
 | `app/common/session.py` | `Session`: the signed cookie, `attach`, `require`. `current_user(c)`. `local_path(url)`. |
 | `app/features/login/` | `GET /login`, `POST /login/{provider}`, `GET /login/{provider}/callback`, `POST /logout`, the button text in `views.py` (`LABELS`), and in `data.py` the `users` and `identities` tables, `get_user`, and `LINK_BY_EMAIL`. |
-| `app/config.py` | One client pair for each provider, `login_allowed_emails`, `session_secret`, `app_dev`. |
+| `app/config.py` | `from_env` reads each variable by its name: the client pairs, `LOGIN_ALLOWED_EMAILS`, `SESSION_SECRET`, `APP_DEV`. |
 | `tests/conftest.py`, `tests/test_login.py` | `FakeProviders`, a `login(client, email=..., provider=...)` helper, and the tests. |
 
 A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read that file and merge its lines into yours.
@@ -53,10 +53,11 @@ The env. A provider is on when both of its values are set, and the app needs at 
 Rules for this kit:
 
 - `app/main.py` builds `providers: dict[str, Provider]`. The key is the name in the route. The login page shows one button for each key, with the text from `LABELS`. The flow cookie holds the name, so a callback cannot switch providers.
-- Another provider that is not OIDC (Facebook, Discord): write a class with `authorize_url` and `identity`, like `GitHub`, add it to the dict, and add its text to `LABELS`. Or use an issuer that brokers it, such as Rauthy.
+- When the app knows its OIDC issuer, name it before you register the callback: read `RAUTHY_ISSUER` and its pair, use `providers["rauthy"]`, and add a `LABELS` entry. Users are keyed by the issuer URL, so a rename keeps them.
+- Another provider that is not OIDC (Facebook, Discord): write a class in its own file in `app/common/providers/`, like `GitHub`. Read its env pair by name in `from_env`, add it to the dict, and add its text to `LABELS`. Or use an issuer that brokers it, such as Rauthy.
 - The key of a user is `identities(issuer, subject)` to `users.id`. Never key a user, a row, or a session on the email: an email can change.
 - A new identity joins the user with the same verified email, but only when both come from an issuer in `LINK_BY_EMAIL` (Google and GitHub). Thus one user can sign in with both. Add your own issuer there only when its users cannot set any email they like.
-- `Issuer` checks that discovery names the configured issuer, that the endpoints are HTTPS, and `iss`, `aud`, `azp`, `exp`, and `nonce` in the ID token. Keep each check. Never decode an ID token anywhere else.
+- `OidcIssuer` (and thus `Google`) checks that discovery names the configured issuer, that the endpoints are HTTPS, and `iss`, `aud`, `azp`, `exp`, and `nonce` in the ID token. Keep each check. Never decode an ID token anywhere else.
 - The callback URL comes from the request host. Register every host of the app at each provider.
 - "Signed in as": `get_user(db, current_user(c))` gives `id`, `email`, and `name`. Sign out is a plain form that posts to `LOGOUT.href()`.
 - An allow list from the database (invited emails, project members): replace the `self.allowed` check in `callback` with a query.

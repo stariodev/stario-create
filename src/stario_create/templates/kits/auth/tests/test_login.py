@@ -8,7 +8,9 @@ from litewriter import LiteWriter
 from stario import json
 from stario.testing import TestClient
 
-from app.common.providers import GOOGLE, Flow, Http, Issuer, LoginFailed
+from app.common.providers import Flow, Http, LoginFailed
+from app.common.providers.google import GOOGLE
+from app.common.providers.oidc import OidcIssuer
 from app.features.login.data import get_user, schema
 from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
 from app.main import bootstrap
@@ -191,13 +193,13 @@ GOOD = {"iss": ISSUER, "aud": "cid", "sub": "1", "exp": time.time() + 60, "nonce
     ],
 )
 async def test_the_issuer_checks(discovery, claims):
-    issuer = Issuer(ISSUER, "cid", "secret", Answers(discovery, claims))
+    issuer = OidcIssuer(ISSUER, "cid", "secret", Answers(discovery, claims))
     with pytest.raises(LoginFailed):
         await issuer.identity("code", "https://app.example/cb", Flow("s", "n", "v"))
 
 
 async def test_the_issuer_accepts_good_claims():
-    issuer = Issuer(ISSUER, "cid", "secret", Answers(DISCOVERY, GOOD | {"email": "A@x.io"}))
+    issuer = OidcIssuer(ISSUER, "cid", "secret", Answers(DISCOVERY, GOOD | {"email": "A@x.io"}))
     who = await issuer.identity("code", "https://app.example/cb", Flow("s", "n", "v"))
     assert (who.issuer, who.subject, who.email, who.email_verified) == (
         ISSUER,

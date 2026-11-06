@@ -12,18 +12,22 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   OpenID Connect issuer with discovery. Each provider is on when its pair is
   set: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and
   `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and
-  `OIDC_CLIENT_SECRET`. `app/main.py` names each provider in a dict, and
-  the login page shows one button for each, with the text from `LABELS` in
-  `views.py`. `LOGIN_ALLOWED_EMAILS` is an optional allow list. `app/common/providers.py` sends `state` and PKCE to every
-  provider. For OIDC it also sends a `nonce`, and it checks `iss`, `aud`,
-  `azp`, `exp`, and `nonce` in the ID token. GitHub gives the numeric user id
-  and the primary verified email. Discovery must name the configured issuer,
-  and its endpoints must be HTTPS. Users are keyed by
-  `identities(issuer, subject)`, never by the email. A new identity joins a
-  user only through a verified email from an issuer in `LINK_BY_EMAIL`
-  (Google and GitHub), stored on the identity, so an unverified address can
-  never claim an account. `get_user(db, user_id)` reads the name and the
-  email. The tests sign in against `FakeProviders`, which checks PKCE, the
+  `OIDC_CLIENT_SECRET`. `LOGIN_ALLOWED_EMAILS` is an optional allow list.
+  `app/config.py` reads each variable by its name.
+- Each provider is one class in `app/common/providers/`: `Google`,
+  `GitHub`, and `OidcIssuer` for any other issuer. `app/main.py` names each
+  provider in a dict, and the login page shows one button for each, with the
+  text from `LABELS` in `views.py`.
+- Every provider gets `state` and PKCE. An OIDC provider also gets a
+  `nonce`, and the kit checks `iss`, `aud`, `azp`, `exp`, and `nonce` in the
+  ID token. Discovery must name the configured issuer, and its endpoints must
+  be HTTPS. GitHub gives the numeric user id and the primary verified email.
+- Users are keyed by `identities(issuer, subject)`, never by the email. A
+  new identity joins a user only through a verified email from an issuer in
+  `LINK_BY_EMAIL` (Google and GitHub), stored on the identity, so an
+  unverified address can never claim an account. `get_user(db, user_id)`
+  reads the name and the email.
+- The tests sign in against `FakeProviders`, which checks PKCE, the
   redirect URI, and the client secret.
 - The password kit moves to `stario-create add auth-password` and becomes
   closed accounts for an admin page: the accounts live in `LOGIN_ACCOUNTS`

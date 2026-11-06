@@ -6,7 +6,10 @@ from stario.cookies import SignedCookie
 from stario.http import same_origin, security_headers
 
 from app.assets import ASSETS
-from app.common.providers import GOOGLE, GitHub, Http, Issuer, Provider
+from app.common.providers import Http, Provider
+from app.common.providers.github import GitHub
+from app.common.providers.google import Google
+from app.common.providers.oidc import OidcIssuer
 from app.common.session import Session
 from app.config import Config
 from app.features.home.handlers import HomePage
@@ -37,13 +40,11 @@ async def bootstrap(app: App, span: Span):
         # Each provider is on when its client pair is set. The key is its name in /login/<name>.
         providers: dict[str, Provider] = {}
         if config.google_client_id:
-            providers["google"] = Issuer(
-                GOOGLE, config.google_client_id, config.google_client_secret, http
-            )
+            providers["google"] = Google(config.google_client_id, config.google_client_secret, http)
         if config.github_client_id:
             providers["github"] = GitHub(config.github_client_id, config.github_client_secret, http)
         if config.oidc_client_id:
-            providers["oidc"] = Issuer(
+            providers["oidc"] = OidcIssuer(
                 config.oidc_issuer, config.oidc_client_id, config.oidc_client_secret, http
             )
         app.use("/", same_origin(), security_headers(), session.attach)

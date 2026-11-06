@@ -1,18 +1,13 @@
 import os
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from app.common.providers import is_secure
 
 
 @dataclass(frozen=True, slots=True)
 class Config:
-    """Every setting and secret. A new setting is one field with a default.
-
-    `from_env` reads each field from the env var of the same name in capitals
-    (`app_version` from `APP_VERSION`) and casts it to the type of the default.
-    """
+    """Every setting and secret. `from_env` reads each one by its env name."""
 
     app_name: str = "$app_name"
     # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
@@ -26,8 +21,8 @@ class Config:
     oidc_issuer: str = ""
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
-    # Emails that may sign in, comma-separated. Empty: every account of the issuer.
-    login_allowed_emails: str = ""
+    # Emails that may sign in. Empty: every account of the providers.
+    allowed_emails: frozenset[str] = frozenset()
     session_secret: str = ""
     # Plain HTTP on a laptop: the cookies drop Secure and the callback URL uses http.
     app_dev: bool = False
@@ -36,37 +31,38 @@ class Config:
     def db_path(self) -> Path:
         return self.data_dir / "app.sqlite3"
 
-    @property
-    def allowed_emails(self) -> frozenset[str]:
-        return frozenset(
-            e.strip().lower() for e in self.login_allowed_emails.split(",") if e.strip()
-        )
-
     @classmethod
     def from_env(cls) -> Config:
-        values: dict[str, Any] = {}
-        for f in fields(cls):
-            raw = os.environ.get("PROJECT_DATA_DIR" if f.name == "data_dir" else f.name.upper())
-            if raw is None:
-                continue
-            if isinstance(f.default, bool):
-                values[f.name] = raw.lower() in ("1", "true", "yes")
-            else:
-                values[f.name] = type(f.default)(raw)
-        config = cls(**values)
+        env = os.environ
+        config = cls(
+            app_name=env.get("APP_NAME", "$app_name"),
+            data_dir=Path(env.get("PROJECT_DATA_DIR", "data")),
+            google_client_id=env.get("GOOGLE_CLIENT_ID", ""),
+            google_client_secret=env.get("GOOGLE_CLIENT_SECRET", ""),
+            github_client_id=env.get("GITHUB_CLIENT_ID", ""),
+            github_client_secret=env.get("GITHUB_CLIENT_SECRET", ""),
+            oidc_issuer=env.get("OIDC_ISSUER", ""),
+            oidc_client_id=env.get("OIDC_CLIENT_ID", ""),
+            oidc_client_secret=env.get("OIDC_CLIENT_SECRET", ""),
+            allowed_emails=frozenset(
+                e.strip().lower()
+                for e in env.get("LOGIN_ALLOWED_EMAILS", "").split(",")
+                if e.strip()
+            ),
+            session_secret=env.get("SESSION_SECRET", ""),
+            app_dev=env.get("APP_DEV", "") in ("1", "true", "yes"),
+        )
         if len(config.session_secret) < 32:
             raise RuntimeError("Set SESSION_SECRET to 32+ random characters.")
-        pairs = {
-            "GOOGLE": (config.google_client_id, config.google_client_secret),
-            "GITHUB": (config.github_client_id, config.github_client_secret),
-            "OIDC": (config.oidc_client_id, config.oidc_client_secret),
-        }
-        for name, (client_id, secret) in pairs.items():
-            if bool(client_id) != bool(secret):
-                raise RuntimeError(f"Set both {name}_CLIENT_ID and {name}_CLIENT_SECRET.")
+        if bool(config.google_client_id) != bool(config.google_client_secret):
+            raise RuntimeError("Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.")
+        if bool(config.github_client_id) != bool(config.github_client_secret):
+            raise RuntimeError("Set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.")
+        if bool(config.oidc_client_id) != bool(config.oidc_client_secret):
+            raise RuntimeError("Set both OIDC_CLIENT_ID and OIDC_CLIENT_SECRET.")
         if config.oidc_client_id and not is_secure(config.oidc_issuer):
             raise RuntimeError("OIDC_CLIENT_ID is set: set OIDC_ISSUER to an https:// URL.")
-        if not any(client_id for client_id, _ in pairs.values()):
-            raise RuntimeError("Set GOOGLE_, GITHUB_, or OIDC_CLIENT_ID and _CLIENT_SECRET.")
+        if not (config.google_client_id or config.github_client_id or config.oidc_client_id):
+            raise RuntimeError("Set GOOGLE_CLIENT_ID, GITHUB_CLIENT_ID, or OIDC_CLIENT_ID.")
         config.data_dir.mkdir(parents=True, exist_ok=True)
         return config
