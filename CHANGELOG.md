@@ -6,6 +6,27 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## Unreleased
 
+### Changed
+
+- `stario-create add auth` is now sign-in with OpenID Connect. It works with
+  Google (the default) and any issuer with discovery: `LOGIN_ISSUER`,
+  `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET`, and an optional
+  `LOGIN_ALLOWED_EMAILS`. `app/common/oidc.py` sends `state`, `nonce`, and
+  PKCE, and checks `iss`, `aud`, `azp`, `exp`, and `nonce` in the ID token.
+  Users are keyed by `identities(issuer, subject)`, never by the email; a
+  new identity joins the user with the same verified email. The tests sign
+  in against a `FakeIssuer`.
+- The password kit moves to `stario-create add auth-password` and becomes
+  closed accounts for an admin page: the accounts live in `LOGIN_ACCOUNTS`
+  (`just password-hash <email>` prints one), there is no sign-up page, five
+  wrong passwords in 15 minutes lock an account, and an unknown email still
+  runs one hash, so the answer time does not show which accounts exist.
+- `session.require` sends a signed-out page load to `/login?next=<path>`,
+  and `local_path` keeps that redirect on the site.
+- The `stario-auth` skill makes OpenID Connect the default and tells the
+  agent not to build open password sign-up.
+- Apps that already have the old kit keep their files.
+
 ## 5.11.0
 
 ### Changed

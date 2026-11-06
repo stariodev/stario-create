@@ -29,8 +29,17 @@ def test_auth_fills_the_app_name_and_replaces_untouched_files(app: Path):
     config = (app / "app/config.py").read_text()
     assert '"demo"' in config
     assert "SESSION_SECRET" in config
-    assert "SignupPage" in (app / "app/main.py").read_text()
-    assert "SESSION_SECRET" in (app / "tests/conftest.py").read_text()
+    assert "LOGIN_CLIENT_ID" in config
+    assert "Issuer(" in (app / "app/main.py").read_text()
+    assert "FakeIssuer" in (app / "tests/conftest.py").read_text()
+    assert not (app / "app/features/signup").exists()
+
+
+def test_auth_password_has_no_sign_up_and_a_hash_recipe(app: Path):
+    add_kit(app, "auth-password")
+    assert "LOGIN_ACCOUNTS" in (app / "app/config.py").read_text()
+    assert "\npassword-hash email:" in (app / "justfile").read_text()
+    assert not (app / "app/features/signup").exists()
 
 
 def test_a_changed_file_is_left_for_a_merge(app: Path):

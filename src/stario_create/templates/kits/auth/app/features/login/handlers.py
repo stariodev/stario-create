@@ -1,14 +1,18 @@
-import asyncio
+import hmac
+import uuid
 from dataclasses import dataclass
 
 from litewriter import LiteWriter
 from stario import App, Context, Writer
-from stario.datastar import SSE, read_signals
+from stario.cookies import SignedCookie
+from stario.datastar import SSE
+from stario.forms import read_form
 
-from app.common.session import Session, check_password, current_user
+from app.common.oidc import Flow, Issuer, LoginFailed
+from app.common.session import Session, current_user, local_path
 from app.features.home.urls import HOME
-from app.features.login.data import get_login
-from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
+from app.features.login.data import add_login
+from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
 from app.features.login.views import render
 
 
@@ -16,29 +20,74 @@ from app.features.login.views import render
 class LoginPage:
     db: LiteWriter
     session: Session
+    issuer: Issuer
+    flow: SignedCookie
+    allowed: frozenset[str]
+    scheme: str
 
     def register(self, app: App) -> None:
         app.add(LOGIN, self.show)
-        app.add(LOGIN_POST, self.submit)
+        app.add(LOGIN_START, self.start)
+        app.add(LOGIN_CALLBACK, self.callback)
         app.add(LOGOUT, self.logout)
 
     async def show(self, c: Context, w: Writer) -> None:
         if current_user(c):
             w.redirect(HOME.href(), status=303)
             return
-        w.html(render())
+        next_url = local_path(c.req.query.get("next", ""))
+        w.html(render(self.issuer.label, next_url, str(c.req.query.get("error", ""))))
 
-    async def submit(self, c: Context, w: Writer) -> None:
-        signals = await read_signals(c.req)
-        email = str(signals.get("email", "")).strip().lower()
-        password = str(signals.get("password", ""))
-        login = get_login(self.db, email)
-        if login is None or not await asyncio.to_thread(check_password, password, login[1]):
-            SSE(w).patch_signals({"password": "", "_error": "Wrong email or password."})
+    async def start(self, c: Context, w: Writer) -> None:
+        with await read_form(c.req) as form:
+            next_url = local_path(form.get("next", ""))
+        flow = Flow.new()
+        try:
+            url = await self.issuer.authorize_url(self._callback_url(c), flow)
+        except LoginFailed as e:
+            self._fail(c, w, "failed", str(e))
             return
-        self.session.issue(w, login[0])
-        SSE(w).navigate(HOME.href())
+        data = {"state": flow.state, "nonce": flow.nonce, "verifier": flow.verifier}
+        self.flow.set(w, data | {"next": next_url})
+        w.redirect(url, status=303)
+
+    async def callback(self, c: Context, w: Writer) -> None:
+        # A GET that signs in: the state check ties it to the start of this browser.
+        saved = self.flow.get(c.req)
+        self.flow.delete(w)
+        if c.req.query.get("error"):
+            self._fail(c, w, "denied", str(c.req.query.get("error")))
+            return
+        data = saved.data if saved is not None else {}
+        state = str(c.req.query.get("state", ""))
+        code = str(c.req.query.get("code", ""))
+        if not code or not hmac.compare_digest(str(data.get("state", "")), state):
+            self._fail(c, w, "expired", "no flow cookie, or another state")
+            return
+        flow = Flow(data["state"], data["nonce"], data["verifier"])
+        try:
+            who = await self.issuer.identity(code, self._callback_url(c), flow)
+        except LoginFailed as e:
+            self._fail(c, w, "failed", str(e))
+            return
+        if self.allowed and not (who.email_verified and who.email in self.allowed):
+            self._fail(c, w, "not_allowed", who.email)
+            return
+        user_id = await self.db.write(add_login, who, str(uuid.uuid7()))
+        self.session.issue(w, user_id)
+        w.redirect(local_path(data.get("next")), status=303)
 
     async def logout(self, c: Context, w: Writer) -> None:
         self.session.clear(w)
-        SSE(w).navigate(LOGIN.href())
+        if c.req.headers.get("datastar-request"):
+            SSE(w).navigate(LOGIN.href())
+        else:
+            w.redirect(LOGIN.href(), status=303)
+
+    def _callback_url(self, c: Context) -> str:
+        # The issuer accepts only the callback URLs registered there, so a forged Host fails.
+        return f"{self.scheme}://{c.req.headers.get('host', '')}{LOGIN_CALLBACK.href()}"
+
+    def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
+        c.span.attrs({"login.error": error, "login.reason": reason})
+        w.redirect(LOGIN.href(query={"error": error}), status=303)

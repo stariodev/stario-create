@@ -35,7 +35,8 @@ A kit is a set of tested files. Run it at the app root:
 
 ```bash
 stario-create add            # list the kits
-stario-create add auth       # session cookie, login, sign-up, logout, tests; adds litewriter
+stario-create add auth       # sign-in with OpenID Connect (Google or any issuer), session, tests
+stario-create add auth-password  # closed password accounts from the env, for an admin page
 stario-create add tailwind   # Tailwind v4 and DaisyUI recipes, input.css, shell, theme switch
 stario-create add browser    # scripts/browser.py, the rare Playwright check
 stario-create add pages      # tests/test_pages.py, for an app from before 5.7
@@ -94,7 +95,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | `stario-relay` | A live page keeps its state in memory, a command tells only its own tab something, or a page has an edit dialog. |
 | `stario-jobs` | A command starts slow work: a job with queued, running, and done. |
 | `stario-browser-check` | Before a browser: the test that answers each question about a page, and the two cases where a browser is right. |
-| `stario-auth` | The app needs accounts: `stario-create add auth`, protected pages, rows that belong to one user. |
+| `stario-auth` | The app needs accounts: sign-in with OpenID Connect (`add auth`), closed password accounts (`add auth-password`), protected pages, rows that belong to one user. |
 | `stario-api` | Any handler, view, or test code: every signature of `c`, `w`, `h.*`, Relay, Span, TestClient, `data.*`, `at.*`, `SSE`, and how a morph treats the page. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |

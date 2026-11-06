@@ -36,13 +36,27 @@ class Kit:
 
 KITS: dict[str, Kit] = {
     "auth": Kit(
-        help="a signed session cookie, login, sign-up, logout, and their tests",
+        help="sign-in with OpenID Connect (Google or any issuer), a session cookie, logout, tests",
         # SignedCookie is new in stario 5.4.0.
         deps=("stario>=5.4.0,<6", "litewriter>=0.3.2,<0.4"),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
-            "Put APP_DEV=1 in .env on a laptop, so the cookie works over plain HTTP.",
+            "Create an OAuth client at the issuer (Google: Google Auth Platform, Clients, Web).",
+            "Register the callback: https://<host>/login/callback, and "
+            "http://localhost:8000/login/callback for the laptop.",
+            "Set LOGIN_CLIENT_ID and LOGIN_CLIENT_SECRET in .env. LOGIN_ISSUER defaults to Google.",
+            "Put APP_DEV=1 in .env on a laptop, so the cookies and the callback work over plain HTTP.",
             'Protect pages under /app, or add app.use("/todos", session.require).',
+        ),
+    ),
+    "auth-password": Kit(
+        help="closed password accounts from LOGIN_ACCOUNTS, for an admin page: no sign-up",
+        deps=("stario>=5.4.0,<6",),
+        next=(
+            'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
+            "Run `just password-hash you@example.com` and put the line in LOGIN_ACCOUNTS.",
+            "Put APP_DEV=1 in .env on a laptop, so the cookie works over plain HTTP.",
+            'Protect pages under /app, or add app.use("/admin", session.require).',
         ),
     ),
     "tailwind": Kit(

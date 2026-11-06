@@ -1,39 +1,30 @@
 from stario import h
-from stario.datastar import at, data
 from stario.markup import HtmlElement
 
 from app.common.shell import page
-from app.features.login.urls import LOGIN_POST
-from app.features.signup.urls import SIGNUP
+from app.features.login.urls import LOGIN_START
+
+ERRORS = {
+    "denied": "The sign-in was cancelled.",
+    "expired": "The sign-in took too long. Try again.",
+    "failed": "The sign-in did not work. Try again.",
+    "not_allowed": "This account has no access.",
+}
 
 
-def render() -> HtmlElement:
+def render(label: str, next_url: str, error: str) -> HtmlElement:
+    message = ERRORS.get(error)
     return page(
         "Sign in",
         h.Main(
             {"id": "login"},
-            data.signals({"email": "", "password": "", "_error": ""}, if_missing=True),
             h.H1("Sign in"),
+            h.P({"role": "alert"}, message) if message else None,
+            # A plain form: the answer is a redirect to the issuer.
             h.Form(
-                data.on("submit", at.post(LOGIN_POST.href()), prevent=True),
-                data.indicator("_sending"),
-                h.Label(
-                    "Email",
-                    h.Input(
-                        {"type": "email", "required": True, "autocomplete": "username"},
-                        data.bind("email"),
-                    ),
-                ),
-                h.Label(
-                    "Password",
-                    h.Input(
-                        {"type": "password", "required": True, "autocomplete": "current-password"},
-                        data.bind("password"),
-                    ),
-                ),
-                h.P({"role": "alert"}, data.show("$_error"), data.text("$_error")),
-                h.Button({"type": "submit"}, data.attr("disabled", "$_sending"), "Sign in"),
+                {"method": "post", "action": LOGIN_START.href()},
+                h.Input({"type": "hidden", "name": "next", "value": next_url}),
+                h.Button({"type": "submit"}, f"Continue with {label}"),
             ),
-            h.P(h.A({"href": SIGNUP.href()}, "Create an account")),
         ),
     )

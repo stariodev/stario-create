@@ -1,11 +1,22 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app - sign-up, sign-in, sign-out, a signed session cookie, protected pages, and rows that belong to one user. Use when the user asks for login, accounts, sessions, "who is the user", per-user data, or a page only some users can open. The code comes from `stario-create add auth`; this skill says how to wire it and what not to change.
+description: Accounts in a Stario app - sign-in with OpenID Connect (Google or any issuer), a signed session cookie, protected pages, rows that belong to one user, and closed password accounts for an admin page. Use when the user asks for login, sign-in, accounts, sessions, "who is the user", per-user data, an allow list, or a page only some users can open. The code comes from `stario-create add auth` or `add auth-password`; this skill says which kit, how to wire it, and what not to change.
 ---
 
 # Accounts
 
-Do not write the session or the login page by hand. Run the kit in the root of the app:
+Do not write sign-in or the session by hand. Pick the kit:
+
+| The app | Kit |
+| --- | --- |
+| Any app with users: public, paid, private, or a family tool | `add auth`: sign-in with OpenID Connect. The default. |
+| One admin page, or a tool for a few known people, with no issuer | `add auth-password`: closed accounts from the env. |
+
+Do not build open sign-up with an email and a password. It needs an email check, a password reset, a rate limit, and a check for leaked passwords. The issuer already does all of them. When the developer asks for password sign-up, say this and offer `add auth`. Build it only when they insist, and list the missing parts in `## This app`.
+
+## Sign-in with OpenID Connect
+
+Run the kit in the root of the app:
 
 ```bash
 uvx stario-create@latest add auth
@@ -15,26 +26,63 @@ It adds `litewriter` and writes tested files:
 
 | File | What it holds |
 | --- | --- |
-| `app/common/session.py` | `Session(cookie, login_url)`: issue and clear a `SignedCookie`, read its user id. `attach` and `require` are middleware methods. `current_user(c)` is the user id or `None`. `hash_password` and `check_password` (scrypt). |
-| `app/features/login/` | `GET /login`, `POST /login`, `POST /logout`, and the `users` table in `data.py`. |
-| `app/features/signup/` | `GET /signup` and `POST /signup`. A taken email sets `_error`. |
-| `app/config.py` | `session_secret`, `dev`, `admin_email`, `admin_password`. |
-| `app/main.py` | The `LiteWriter`, the seed admin, the `SignedCookie` (`__Host-session`, or `session` with `APP_DEV=1`), the middleware, `/app` protected. |
-| `tests/conftest.py`, `tests/test_login.py` | Test settings, a `login(client)` helper, and the tests. |
+| `app/common/oidc.py` | `Issuer`: discovery, the redirect, the code exchange, and the checks of the ID token. `Flow`: state, nonce, PKCE. `Http`: the two calls, which tests replace. |
+| `app/common/session.py` | `Session`: the signed cookie, `attach`, `require`. `current_user(c)`. `local_path(url)`. |
+| `app/features/login/` | `GET /login`, `POST /login` (to the issuer), `GET /login/callback`, `POST /logout`, and the `users` and `identities` tables in `data.py`. |
+| `app/config.py` | `login_issuer`, `login_client_id`, `login_client_secret`, `login_allowed_emails`, `session_secret`, `app_dev`. |
+| `tests/conftest.py`, `tests/test_login.py` | `FakeIssuer`, a `login(client, email=...)` helper, and the tests. |
 
-A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read that file and merge its lines into yours. In `app/main.py`, the order matters: `same_origin()` and `security_headers()` come before `session.attach`, and `attach` comes before any `require`.
+A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read that file and merge its lines into yours.
 
 Then:
 
-1. Put `SESSION_SECRET` (32+ random characters) and `APP_DEV=1` in `.env`. `just dev` loads it. On Yard: `yard env edit --app <name>`, with no `APP_DEV`.
-2. Run `just check`.
+1. Create an OAuth client at the issuer. Google: Google Auth Platform, Clients, Web application.
+2. Register the callback for each host: `https://<host>/login/callback`, and `http://localhost:8000/login/callback` for the laptop.
+3. Put `SESSION_SECRET` (32+ random characters), `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET`, and `APP_DEV=1` in `.env`. On Yard: `yard env edit --app <name>`, with no `APP_DEV`.
+4. Run `just check`.
+
+The env:
+
+| Variable | Meaning |
+| --- | --- |
+| `LOGIN_ISSUER` | The issuer URL. Default `https://accounts.google.com`. |
+| `LOGIN_CLIENT_ID`, `LOGIN_CLIENT_SECRET` | The OAuth client. The app does not start without them. |
+| `LOGIN_ALLOWED_EMAILS` | Comma-separated verified emails that may sign in. Empty: every account of the issuer. |
+
+Rules for the OIDC kit:
+
+- Any issuer with discovery works: Google, Microsoft, GitLab, Rauthy, Pocket ID, Zitadel, Keycloak. A change of issuer is a change of `LOGIN_ISSUER` and the client, not of code.
+- GitHub and Facebook are not OIDC. Use an issuer that brokers them, such as Rauthy. Do not add an adapter for one provider.
+- The key of a user is `identities(issuer, subject)` to `users.id`. Never key a user, a row, or a session on the email: an email can change.
+- A new identity joins the user with the same verified email. Thus a move to a new issuer keeps the accounts.
+- `Issuer.identity` checks `iss`, `aud`, `azp`, `exp`, and `nonce`. Keep each check. Never decode an ID token anywhere else.
+- The callback URL comes from the `Host` header. The issuer accepts only registered URLs, so register every host of the app.
+- An allow list from the database (invited emails, project members): replace the `self.allowed` check in `callback` with a query.
+- Test a sign-in with `await login(client, email="bob@example.com")`. It runs the real routes against `FakeIssuer`.
+
+## Closed password accounts
+
+```bash
+uvx stario-create@latest add auth-password
+```
+
+It writes `app/common/session.py` (with `hash_password`, `check_password`, and `Tries`), `app/features/login/`, the config, the tests, and a `just password-hash` recipe. It has no sign-up page and no users table.
+
+- The accounts live in `LOGIN_ACCOUNTS`: `email:hash,email:hash`. `just password-hash ada@example.com` asks for the password and prints one entry.
+- To add, remove, or reset an account, edit `LOGIN_ACCOUNTS` and restart the app.
+- The user id is the email.
+- Five wrong passwords in 15 minutes lock that account. An unknown email still runs one hash, so the answer time does not show which accounts exist.
+- Use it for an admin page or a few known people only. An app with more users uses `add auth`.
 
 ## Protect pages
+
+Both kits protect pages in the same way:
 
 - A new app keeps its protected pages under `/app`. One `app.use("/app", session.require)` covers each route below it, and its 404 and 405 answers too.
 - An app that already has pages keeps its URLs. Protect each page where it is: `app.use("/todos", session.require)`. Then set `PROTECTED` in `tests/test_login.py` to `/todos`.
 - One protected route outside a prefix: `app.add(ROUTE, handler, middleware=[session.require])`.
-- A signed-out page load gets a 303. A signed-out Datastar request (a stream, a command) gets `navigate`.
+- A signed-out page load gets a 303 to `/login?next=<path>`, and the sign-in comes back to that path. A signed-out Datastar request gets `navigate`.
+- In `app/main.py`, the order matters: `same_origin()` and `security_headers()` come before `session.attach`, and `attach` comes before any `require`.
 
 ## Rows that belong to a user
 
@@ -49,16 +97,14 @@ tx.execute("CREATE INDEX IF NOT EXISTS todos_user ON todos(user_id)")
 - Every read, stream, and command filters by `current_user(c)`: `db.watch("... WHERE user_id = :user ...", Todo, user=user)`.
 - A command checks that the row belongs to the user before it changes it. A row of another user gets 404, never 403.
 - A test signs in two users and asserts that each stream shows only its own rows.
-- Rows from before accounts: ask the developer whether they go to the seed user or away. If you cannot ask, keep them and write the open choice in `## This app`.
+- Rows from before accounts: ask the developer whether they go to the first user or away. If you cannot ask, keep them and write the open choice in `## This app`.
 
 ## Rules
 
-- The cookie is a `SignedCookie`: the user id, signed, with an expiry that the server checks. It holds no password, no role, no row.
-- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`. The name is `__Host-session`, so a subdomain cannot set it.
-- To rotate `SESSION_SECRET`, pass `keys=[new, old]` for one `max_age`. Each key is 32 bytes or more.
-- A password is hashed with scrypt in `asyncio.to_thread`, never inside a write function. It is never stored in clear, logged, or put in a span attribute.
-- A protected page uses `require`. A handler never reads the cookie itself.
-- A command that acts for a user reads `current_user(c)`, not a signal or a path parameter.
+- The cookie holds the user id and an expiry, signed. It holds no profile, no password, no role, no row.
+- `httponly=True` always. `secure=True` outside local development. `samesite="lax"`, so the callback from the issuer carries the flow cookie.
+- A protected page uses `require`. A handler never reads the cookie itself. It calls `current_user(c)`.
+- A redirect to a `next` value goes through `local_path`, so it stays on this site.
 - Logout is a `POST`.
-- A session lasts `max_age` and cannot be revoked one at a time. For "sign out everywhere", add a `session_version` to the user row and to the cookie data, and compare them in `Session.user_id`.
-- Prove login with `TestClient`. The client keeps cookies, so `await login(client)` signs in the next requests. Do not open a browser for a sign-in or a redirect.
+- A session lasts `max_age` and cannot be revoked one at a time. For "sign out everywhere", add a `session_version` to the user `data` and to the cookie, and compare them in `Session.user_id`.
+- Prove sign-in with `TestClient`. The client keeps cookies. Do not open a browser for a sign-in or a redirect.

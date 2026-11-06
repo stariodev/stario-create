@@ -1,0 +1,4 @@
+
+# print one LOGIN_ACCOUNTS entry; it asks for the password: just password-hash ada@example.com
+password-hash email:
+    @uv run python -c 'import getpass, sys; from app.common.session import hash_password; print(sys.argv[1].lower() + ":" + hash_password(getpass.getpass()))' {{email}}

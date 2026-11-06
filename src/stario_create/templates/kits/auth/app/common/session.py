@@ -1,8 +1,5 @@
-import base64
-import hashlib
-import hmac
-import secrets
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from stario import Context, Handler, Writer
 from stario.cookies import SignedCookie
@@ -16,6 +13,13 @@ def current_user(c: Context) -> str | None:
     if _USER not in c.state:
         raise RuntimeError("current_user() needs the session.attach middleware on this route")
     return c.state[_USER]
+
+
+def local_path(url: object, default: str = "/") -> str:
+    """`url` when it is a path on this site, else `default`. Stops an open redirect."""
+    if not isinstance(url, str) or not url.startswith("/") or url.startswith("//"):
+        return default
+    return default if "\\" in url else url
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,27 +51,16 @@ class Session:
         return handler
 
     def require(self, inner: Handler) -> Handler:
-        """A page for signed-in users. A page load redirects. A Datastar action navigates."""
+        """A page for signed-in users. A page load goes to the login page and
+        comes back after it. A Datastar action navigates to the login page."""
 
         async def handler(c: Context, w: Writer) -> None:
             if current_user(c) is None:
                 if c.req.headers.get("datastar-request"):
                     SSE(w).navigate(self.login_url)
                 else:
-                    w.redirect(self.login_url, status=303)
+                    w.redirect(f"{self.login_url}?{urlencode({'next': c.req.path})}", status=303)
                 return
             await inner(c, w)
 
         return handler
-
-
-def hash_password(password: str, salt: bytes | None = None) -> str:
-    """About 30 ms of CPU. Call it through asyncio.to_thread from a handler."""
-    salt = salt or secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
-    return base64.b64encode(salt).decode() + "$" + base64.b64encode(digest).decode()
-
-
-def check_password(password: str, stored: str) -> bool:
-    salt_b64, _, _ = stored.partition("$")
-    return hmac.compare_digest(hash_password(password, base64.b64decode(salt_b64)), stored)

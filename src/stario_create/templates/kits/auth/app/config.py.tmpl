@@ -1,36 +1,55 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
 class Config:
-    app_name: str
-    data_dir: Path
-    db_path: Path
-    session_secret: bytes
-    dev: bool
-    admin_email: str
-    admin_password: str
+    """Every setting and secret. A new setting is one field with a default.
+
+    `from_env` reads each field from the env var of the same name in capitals
+    (`app_version` from `APP_VERSION`) and casts it to the type of the default.
+    """
+
+    app_name: str = "$app_name"
+    # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
+    data_dir: Path = Path("data")
+    # Sign-in with OpenID Connect. Any issuer with discovery works.
+    login_issuer: str = "https://accounts.google.com"
+    login_client_id: str = ""
+    login_client_secret: str = ""
+    # Emails that may sign in, comma-separated. Empty: every account of the issuer.
+    login_allowed_emails: str = ""
+    session_secret: str = ""
+    # Plain HTTP on a laptop: the cookies drop Secure and the callback URL uses http.
+    app_dev: bool = False
+
+    @property
+    def db_path(self) -> Path:
+        return self.data_dir / "app.sqlite3"
+
+    @property
+    def allowed_emails(self) -> frozenset[str]:
+        return frozenset(
+            e.strip().lower() for e in self.login_allowed_emails.split(",") if e.strip()
+        )
 
     @classmethod
     def from_env(cls) -> Config:
-        # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
-        data_dir = Path(os.environ.get("PROJECT_DATA_DIR", "data"))
-        data_dir.mkdir(parents=True, exist_ok=True)
-        secret = os.environ.get("SESSION_SECRET", "")
-        if len(secret) < 32:
+        values: dict[str, Any] = {}
+        for f in fields(cls):
+            raw = os.environ.get("PROJECT_DATA_DIR" if f.name == "data_dir" else f.name.upper())
+            if raw is None:
+                continue
+            if isinstance(f.default, bool):
+                values[f.name] = raw.lower() in ("1", "true", "yes")
+            else:
+                values[f.name] = type(f.default)(raw)
+        config = cls(**values)
+        if len(config.session_secret) < 32:
             raise RuntimeError("Set SESSION_SECRET to 32+ random characters.")
-        admin_email = os.environ.get("ADMIN_EMAIL", "")
-        admin_password = os.environ.get("ADMIN_PASSWORD", "")
-        if admin_email and len(admin_password) < 12:
-            raise RuntimeError("ADMIN_EMAIL is set: set ADMIN_PASSWORD to 12+ characters.")
-        return cls(
-            app_name=os.environ.get("APP_NAME", "$app_name"),
-            data_dir=data_dir,
-            db_path=data_dir / "app.sqlite3",
-            session_secret=secret.encode(),
-            dev=os.environ.get("APP_DEV") == "1",
-            admin_email=admin_email,
-            admin_password=admin_password,
-        )
+        if not config.login_client_id or not config.login_client_secret:
+            raise RuntimeError("Set LOGIN_CLIENT_ID and LOGIN_CLIENT_SECRET from your OIDC issuer.")
+        config.data_dir.mkdir(parents=True, exist_ok=True)
+        return config
