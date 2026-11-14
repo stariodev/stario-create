@@ -1,24 +1,20 @@
 ---
 name: stario-feature
-description: Add a live page to a Stario app - a list or board in SQLite that every tab sees change at once. Also a command that goes to the page it created, removing a page, and a folder that grew. Use when a page does not refresh in other tabs. Not for a static page (AGENTS.md). Sort, filter, search - stario-view. Memory or one-tab messages - stario-relay. Slow work - stario-jobs.
+description: A whole Stario page to copy - its SQLite table, reads and writes, the live view, a form command with an error message, its tests - plus navigate to a new page, and paging. Use when you add a page that keeps data, or a page does not refresh in other tabs. Sort, filter, search - stario-view. Memory or one-tab messages - stario-relay. Slow work - stario-jobs.
 ---
 
-# Add a live page
+# A whole page
 
-`AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. To change a page, read its folder first.
+`AGENTS.md` holds the rules; `stario-api` and `stario-datastar` hold the names. Copy the four files below, rename, and write each feature in one step.
 
-## Steps
-
-1. Decide the resource. The path names it: `/todos`, `/rooms/{room_id}`. One folder `app/features/<page>/`, named after the URL noun.
-2. Decide the stream source. Rows in SQLite: `db.watch` (this skill). State in memory, or a message to one tab: skill `stario-relay`. Ask the developer before you add a database.
-3. Write `__init__.py`, `urls.py`, `views.py`, `handlers.py`, and `data.py` when the page owns state.
-4. In `app/main.py`, build the shared objects, then add `TodosPage(db).register(app)` under `# pages`. Add the schema function of the page to `schema(tx)`.
-5. Add `(TODOS, "Todos")` to `LINKS` in `app/features/home/views.py`.
-6. Write `tests/test_<page>.py`, then run `just check`. Fix every failure.
+1. One folder `app/features/<page>/` with `__init__.py`, named after the URL noun: `/rooms/{room_id}` is `room`.
+2. Rows in SQLite (`new --db`, or `uv add "litewriter>=0.3.3,<0.4"`): `db.watch`. In memory: `stario-relay`.
+3. `app/main.py`: `todos_data.schema(tx)` in `schema`, `TodosPage(db).register(app)` under `# pages`. `(TODOS, "Todos")` in `LINKS` (home `views.py`).
+4. Tests as AGENTS.md says, then `just check`.
 
 ## A live page
 
-A shared todo list in SQLite. The stream follows `db.watch`, so the commands only write. Nothing publishes.
+A shared todo list. The stream follows `db.watch`, so the commands only write.
 
 ```python
 # urls.py
@@ -102,17 +98,15 @@ def render(items: list[Todo]) -> HtmlElement:
         "Todos",
         h.Main(
             {"id": "todos"},
-            data.signals({"title": ""}, if_missing=True),
+            data.signals({"title": "", "_error": ""}, if_missing=True),
             data.init(at.get(TODOS_LIVE.href(), retry="always")),
             h.Form(
                 data.on("submit", at.post(ADD_TODO.href()), prevent=True),
                 data.indicator("_adding"),
-                h.Input(
-                    {"type": "text", "required": True, "maxlength": 200},
-                    data.bind("title"),
-                ),
+                h.Input({"type": "text", "maxlength": 200}, data.bind("title")),
                 h.Button({"type": "submit"}, data.attr("disabled", "$_adding"), "Add"),
             ),
+            h.Ul({"class": "error-messages"}, data.show("$_error"), h.Li(data.text("$_error"))),
             h.Ul(*[item(t) for t in items]) if items else h.P("No todos yet."),
         ),
     )
@@ -165,9 +159,9 @@ class TodosPage:
     async def add(self, c: Context, w: Writer) -> None:
         title = str((await read_signals(c.req)).get("title", "")).strip()
         if not title or len(title) > 200:
-            w.text("title must be 1 to 200 characters", status=400)
+            SSE(w).patch_signals({"_error": "title must be 1 to 200 characters"})
             return
-        SSE(w).patch_signals({"title": ""})
+        SSE(w).patch_signals({"title": "", "_error": ""})
         await self.db.write(add_todo, title)
 
     async def toggle(self, c: Context, w: Writer) -> None:
@@ -179,7 +173,13 @@ class TodosPage:
         await self.db.write(toggle_done, int(todo_id))
 ```
 
-`add` replies with `patch_signals` to clear the input, then awaits the write. The commit wakes the watch, and every open tab repaints.
+`add` replies with `patch_signals` (the error, or a cleared input), then awaits the write. The commit wakes the watch, and every open tab repaints. A page that reads several tables watches one small query that changes with them, and reads the rest in the loop:
+
+```python
+async with self.db.watch(VERSION, article_id=article.id) as versions:
+    async for _ in c.alive(versions):
+        sse.patch_elements(render(get_article(self.db, article.id), viewer))
+```
 
 ## Tests
 
@@ -211,38 +211,32 @@ async def test_toggle_repaints_the_stream(client):
         assert "checked" in (await anext(events))["data"]
 
 
-async def test_the_page_loads_and_bad_input_gets_4xx(client):
+async def test_the_page_loads_and_bad_input_is_refused(client):
     assert 'id="todos"' in (await client.get(TODOS.href())).text
-    assert (await client.post(ADD_TODO.href(), json={"title": " "})).status_code == 400
+    assert "_error" in (await client.post(ADD_TODO.href(), json={"title": " "})).text
     assert (await client.post(TOGGLE_TODO.href(99))).status_code == 404
 ```
 
-Read the first event, so the subscription is up. Send the command. Assert the next event. `timeout=2` fails a missing repaint in two seconds. This is the whole check for "the other tab never updates". Do not open a browser for it.
+Read the first event, so the subscription is up. Send the command. Assert the next event. `timeout=2` fails a missing repaint in two seconds: the whole check for "the other tab never updates", with no browser.
 
 ## Go to the page a command made
 
-A command that creates a resource with its own page (a room, a document) writes first, because the URL needs the new id. Then it answers `navigate`:
+A command that creates a page of its own writes first, because the URL needs the new id, then answers `navigate` (a test asserts `"window.location" in r.text`):
 
 ```python
 async def create(self, c: Context, w: Writer) -> None:
     name = str((await read_signals(c.req)).get("name", "")).strip()
     if not name or len(name) > 80:
-        w.text("name must be 1 to 80 characters", status=400)
+        SSE(w).patch_signals({"_error": "name must be 1 to 80 characters"})
         return
     room_id = await self.db.write(add_room, name)
     SSE(w).navigate(ROOM.href(room_id))
 ```
 
-A test asserts `"window.location" in r.text`.
+## Paging
 
-## Remove a page
+The page number is in the query: `TODOS.href(query={"page": 2})`, read with `c.req.query.get("page", "1")` (check `isdecimal()`). SQL: `LIMIT :limit OFFSET :offset`, and `count(*)` for the number of pages. Each page number is an `<a href>`. Sort and filter: skill `stario-view`.
 
-1. Delete `app/features/<page>/` and `tests/test_<page>.py`.
-2. Remove the `register` call and the schema call from `app/main.py`.
-3. Fix every import of the deleted `urls.py` or `data.py`. Pyrefly finds them.
-4. Tables the page owned: ask the developer whether to drop them.
-5. `just check`.
+## Remove a page, or split one
 
-## When the folder grows
-
-A `handlers.py` over about 300 lines or a `views.py` over about 400 lines usually hides a second resource. Split by URL noun, not by layer. Code with no URL moves to `app/<name>/` as plain functions, not into a service class.
+Delete its folder and test file, its `register` and `schema` lines, and fix the imports pyrefly reports. Ask before you drop its tables. A `handlers.py` over about 300 lines usually hides a second resource: split by URL noun, not by layer.

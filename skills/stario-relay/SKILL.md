@@ -1,6 +1,6 @@
 ---
 name: stario-relay
-description: A live Stario page on state in memory, or a command that tells only its own tab something (an error, a toast) - through one Relay and a tab id. Also an edit dialog that stays open and keeps what the user typed while other people change the list, and a value one tab remembers (a display name). Use for chat rooms, boards, or lists kept in memory, for a conflict or duplicate message, and for a dialog.
+description: A live Stario page on state in memory (a chat room, a board, a list kept in memory) through one Relay, a message to one tab after a slow write, an edit dialog that stays open and keeps what the user typed while others change the list, and a value one tab remembers. Not needed for SQLite pages (db.watch) or form errors (patch_signals).
 ---
 
 # Relay: state in memory and messages to one tab

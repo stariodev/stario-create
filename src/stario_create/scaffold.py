@@ -19,6 +19,7 @@ from string import Template
 from stario_create.data import guide_text, profile_skills, resource, skill_names, template
 
 STARIO_REQ = "stario>=5.4.0,<6"
+LITEWRITER_REQ = "litewriter>=0.3.3,<0.4"
 DEV_REQS = ["ruff", "pyrefly", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -82,10 +83,40 @@ def _fill(name: str, **subs: str) -> str:
     return Template(template(name).read_text()).safe_substitute(subs)
 
 
+def app_name_for(root: Path) -> str:
+    """A snake_case app name from a directory name: `My App` -> `my_app`."""
+    name = re.sub(r"[^a-z0-9_]+", "_", root.resolve().name.lower()).strip("_") or "app"
+    return name if name[0].isalpha() else f"app_{name}"
+
+
+def guide_above(root: Path) -> Path | None:
+    """An AGENTS.md above root that already is the Stario guide, else None.
+
+    An app scaffolded inside a repo whose root has the guide (and the skills)
+    gets no second copy: the agent already reads the one above.
+    """
+    head = guide_text("app").splitlines()[0]
+    for parent in root.resolve().parents:
+        path = parent / "AGENTS.md"
+        if path.is_file() and path.read_text().splitlines()[:1] == [head]:
+            return path
+    return None
+
+
 def scaffold_files(
-    root: Path, app_name: str, *, force: bool = False, orjson: bool = False
+    root: Path,
+    app_name: str,
+    *,
+    force: bool = False,
+    orjson: bool = False,
+    db: bool = False,
+    agent_files: bool = True,
 ) -> list[str]:
-    """Write the app tree under root. Returns the files written."""
+    """Write the app tree under root. Returns the files written.
+
+    `db` opens a litewriter database in `bootstrap`. `agent_files=False`
+    skips AGENTS.md, the skills, and the Cloud Agent files.
+    """
     created: list[str] = []
 
     def w(rel: str, text: str) -> None:
@@ -104,7 +135,7 @@ def scaffold_files(
     w(
         "app/main.py",
         _fill(
-            "app/main.py.tmpl",
+            "app/main_db.py.tmpl" if db else "app/main.py.tmpl",
             orjson_import="\nimport orjson" if orjson else "",
             json_import=", json" if orjson else "",
             codec="    json.set_codec(orjson.dumps, orjson.loads)\n" if orjson else "",
@@ -126,12 +157,12 @@ def scaffold_files(
 
     w("justfile", template("justfile").read_text())
     w(".dockerignore", template("dockerignore").read_text())
-    created.extend(sync_cloud_env(root, force=force))
-
-    guide = sync_guide(root, force=force)
-    if guide is not None:
-        created.append(guide)
-    created.extend(sync_skill_files(root, force=force))
+    if agent_files:
+        created.extend(sync_cloud_env(root, force=force))
+        guide = sync_guide(root, force=force)
+        if guide is not None:
+            created.append(guide)
+        created.extend(sync_skill_files(root, force=force))
 
     _append_once(root / ".gitignore", "*.sqlite3*", created)
     _append_once(root / ".gitignore", "data/", created)

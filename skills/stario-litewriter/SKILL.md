@@ -1,6 +1,6 @@
 ---
 name: stario-litewriter
-description: SQLite in a Stario app through litewriter (one writer thread, group commit, watch). The recommended store when a Stario app needs persistent data. Use when the user asks for a database, SQLite, persistence, data that survives a restart, a new table or field, an index, or a live page that repaints when rows change.
+description: Grow a litewriter (SQLite) schema in a Stario app - the id plus JSON document table, a new field or filter as a virtual column, an index, a unique value, dropping a column, push and submit, and how watch decides to wake. Use when a table changes shape or a query needs an index. Opening the file, reads, writes, and watch are in stario-api and stario-feature.
 ---
 
 # SQLite with litewriter

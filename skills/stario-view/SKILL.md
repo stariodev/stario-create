@@ -1,6 +1,6 @@
 ---
 name: stario-view
-description: Choose what one tab of a Stario page sees - a sort, a filter, paging, or a search as you type. Use when the user asks to sort or filter a list, to page through it, for a per-person or per-tab sort that still updates live, or for a search box that filters while the user types. The view lives in the URL as a View dataclass; the search is a GET that patches one part.
+description: A sort, a filter, or a search as you type on a Stario list - the view lives in the URL as a View dataclass, the page and its stream read the same view, and the search is a GET that patches one part. Use for sort or filter controls, a per-tab sort that still updates live, or a search box. Plain paging is in stario-feature.
 ---
 
 # A view in the URL, and search as you type
