@@ -139,13 +139,13 @@ A page is one class in `handlers.py`; its fields are its dependencies. A read or
 
 ## Write in few steps
 
-Plan the routes and tables first. Then write each feature whole (`urls.py`, `data.py`, `views.py`, `handlers.py`) in one step, several files at once. A wrong name costs a rewrite: look it up in `stario-api` before you write it.
+Plan the routes, tables, and shared markup first. Then write the app in a few large steps: one command (a chain of heredocs, or several writes in one message) can create ten files, and a feature (`urls.py`, `data.py`, `views.py`, `handlers.py`) is never split across steps. Do not reopen a file you just wrote to tidy it: let `just check` and the tests say what is wrong. A wrong name costs a rewrite: look it up in the skills before you write it.
 
 ## Tests
 
 `tests/conftest.py` gives `client`, a `TestClient(bootstrap)` on an empty data dir. A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a Datastar `POST` in `json={...}`, a plain form in `data={...}`. The next SSE event of `client.stream(...)` is the changed HTML; two streams are two tabs. `tests/test_pages.py` checks every page by itself.
 
-Test what nothing else checks. The project has an end-to-end suite (a spec's acceptance tests): it is the check; run it, and add a TestClient test only for a bug it does not show. Otherwise each page gets one test file: it loads, a command repaints the stream, bad input gets 4xx. A bug starts with a test that shows it.
+Test what nothing else checks. When the task comes with acceptance tests (an end-to-end suite such as `npm test`), that suite is the check: write no TestClient tests for what it covers, run it after each change, and stop when it passes. Without such a suite, each page gets one test file: it loads, a command repaints the stream, bad input is refused. A bug starts with a test that shows it.
 
 ## Checks
 

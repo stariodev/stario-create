@@ -39,7 +39,7 @@ FILES = Route("GET /docs/{path...}")    # catch-all: the rest of the path, last 
 ROUTE.href(7, query={"sort": "title"}, fragment=None)   # "/rooms/7?sort=title"
 ```
 
-A literal segment beats a parameter: `/editor` and `/editor/{slug}` both work. An unknown path gets `404 Not Found` (text) unless `app.not_found` sets a page; a known path with another method gets 405.
+`href` percent-encodes each value; a value with `/` raises (use `{path...}`). A literal segment beats a parameter: `/editor` and `/editor/{slug}` both work. An unknown path gets `404 Not Found` (text) unless `app.not_found` sets a page; a known path with another method gets 405.
 
 ## Context `c` and Request `c.req`
 
@@ -134,7 +134,7 @@ async with db.watch(sql, Row, **params) as rows:   # first item now, then after 
 tx.execute(sql, **params)  tx.query  tx.one  tx.value  tx.last_insert_rowid()
 ```
 
-`:name` in the SQL takes the keyword `name`. Reads are plain calls on the loop. A write function holds no network call and no password hash: do that before `db.write`. A unique value: `CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email)` in `schema`, and catch `apsw.ConstraintError` around `await db.write(...)`. A new app writes plain `CREATE TABLE IF NOT EXISTS` statements, or the JSON table of `stario-feature`. A table that already holds rows changes shape: `stario-litewriter`.
+A watch reads again after a commit that inserts or deletes in a table it reads, or updates a column it reads; equal rows do not yield. `:name` in the SQL takes the keyword `name`. Reads are plain calls on the loop. A write function holds no network call and no password hash: do that before `db.write`. A unique value: `CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email)` in `schema`, and catch `apsw.ConstraintError` around `await db.write(...)`. A new app writes plain `CREATE TABLE IF NOT EXISTS` statements, or the JSON table of `stario-feature`. A table that already holds rows changes shape: `stario-litewriter`.
 
 ## Relay
 
