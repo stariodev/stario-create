@@ -19,7 +19,24 @@ from stario.markup import HtmlElement, SafeString, baked, render
 Every tag is `h.` plus the tag name with a capital letter: `h.Div`, `h.Textarea`, `h.Dialog`, `h.HtmlDocument` (the `<html>` with its doctype).
 
 - Attributes first, children after: `h.A({"href": HOME.href()}, data.show("$x"), "Home")`. A dict and each `data.*` result is an attribute. A dict after a child raises "HTML attributes must be passed before children" when the page renders.
-- `True` writes a bare attribute. `None` or `False` leaves it out. `classes("btn", {"active": is_on})` builds `class`.
+- `True` writes a bare attribute. `None` or `False` leaves it out.
+- `classes("btn", {"active": is_on})` is an attribute of its own, next to the dict: `h.Li(classes("tag", {"on": on}), {"id": x}, text)`. Inside a dict (`{"class": classes(...)}`) pyrefly refuses it.
+
+Types that pyrefly checks, for helpers:
+
+```python
+from stario.markup import Attrs, HtmlElement
+
+
+def on_submit(url: str) -> list[Attrs]:  # data.* and classes() return Attrs
+    return [data.on("submit", at.post(url), prevent=True), data.indicator("_saving")]
+
+
+def nav_link(href: str, active: bool, *children: HtmlElement | str) -> HtmlElement:
+    return h.A(classes("nav-link", {"active": active}), {"href": href}, *children)
+```
+
+A dict value is `str | int | float | bool | None | SafeString`. A list in `data.signals` is a literal: `{"tags": [*tags]}` (a `list[str]` variable is refused).
 - A child is a string (escaped), a number, a node, a list of nodes, or `None` (skipped). `h.Div(*items)` spreads a list.
 - Trusted HTML (rendered Markdown): `SafeString(html)`. Never wrap user text in it unescaped.
 - `render(node)` returns the HTML string. `@baked` caches a function whose output depends only on its arguments. SVG: `from stario.markup import svg`.

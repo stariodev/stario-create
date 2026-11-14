@@ -4,6 +4,39 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.13.0
+
+Measured with stario-agent-bench (Conduit and the Pokédex, Claude Sonnet and
+Haiku): Stario builds cost 1.6x to 3.9x the cheapest framework, through extra
+turns. Agents scaffolded in `/tmp` and read the files back, probed
+`site-packages` for names the guide did not give, read six skills up front,
+patched small files, and wrote tests that an acceptance suite already covered.
+
+### Changed
+
+- `stario-create new <folder>` scaffolds in place: the folder may be `app`,
+  `.`, or any path, and `app_name` comes from its name (`--name` sets it).
+  `--db` adds litewriter and opens the SQLite file in `bootstrap`. Inside a
+  repo whose `AGENTS.md` above the folder is already the Stario guide, it
+  writes no second copy of the guide or the skills. It ends by printing what
+  each file holds, so an agent need not open them.
+- `AGENTS.md` shows `main.py`, the layout the scaffold writes, the rules that
+  fail at run time (attributes before children), and one whole page class
+  with its view. It asks for each feature in one step, and makes tests
+  proportional: with an end-to-end suite, that suite is the check.
+- `stario-api` is the server-side reference: serving on a host and port,
+  a catch-all route and a 404 page, redirects (`RedirectException`), errors
+  (`catch_errors`), cookies and `SignedCookie`, forms, `Assets` and `Files`,
+  litewriter, Relay, and `TestClient` with form posts (`data=`) and
+  `r.headers.get(...)`.
+- New skill `stario-datastar`: the page side (`h.*`, `data.*`, `at.*`,
+  `SSE`) that was in `stario-api`.
+- `stario-auth` adds password sign-in for a spec that requires it (scrypt,
+  the same `Session`, `require_user`), next to provider sign-in.
+- `stario-feature` shows a form error through a `_error` signal, a page that
+  watches several tables, and paging. Narrower descriptions for
+  `stario-litewriter`, `stario-relay`, and `stario-view`.
+
 ## 5.12.0
 
 ### Changed

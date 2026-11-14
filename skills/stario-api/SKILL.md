@@ -78,6 +78,7 @@ An uncaught exception logs on the request span and answers 500. A typed error to
 async def not_allowed(c: Context, w: Writer, exc: BaseException) -> None:
     w.text("not allowed", status=403)
 
+
 app.use("/", catch_errors(PermissionError, respond=not_allowed))
 ```
 
@@ -133,7 +134,7 @@ async with db.watch(sql, Row, **params) as rows:   # first item now, then after 
 tx.execute(sql, **params)  tx.query  tx.one  tx.value  tx.last_insert_rowid()
 ```
 
-`:name` in the SQL takes the keyword `name`. Reads are plain calls on the loop. A write function holds no network call and no password hash: do that before `db.write`. Catch `apsw.ConstraintError` around `await db.write(...)` for a taken unique value. Tables: skill `stario-feature`; schema changes: `stario-litewriter`.
+`:name` in the SQL takes the keyword `name`. Reads are plain calls on the loop. A write function holds no network call and no password hash: do that before `db.write`. A unique value: `CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email)` in `schema`, and catch `apsw.ConstraintError` around `await db.write(...)`. A new app writes plain `CREATE TABLE IF NOT EXISTS` statements, or the JSON table of `stario-feature`. A table that already holds rows changes shape: `stario-litewriter`.
 
 ## Relay
 

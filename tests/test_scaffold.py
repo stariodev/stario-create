@@ -120,7 +120,9 @@ def test_cli_version():
 
 def test_cli_error_text():
     with tempfile.TemporaryDirectory() as d:
-        out = subprocess.run([*CLI, "new", "Bad-Name", "--dir", d], capture_output=True, text=True)
+        out = subprocess.run(
+            [*CLI, "new", "x", "--name", "Bad-Name", "--dir", d], capture_output=True, text=True
+        )
     assert out.returncode == 1
     assert out.stderr.startswith("stario-create: ")
     assert "hint: " in out.stderr
@@ -141,6 +143,52 @@ def test_cli_new_app_is_not_a_package(tmp_path: Path):
     pyproject = (root / "pyproject.toml").read_text()
     assert "[project.scripts]" not in pyproject
     assert "[build-system]" not in pyproject
+
+
+def test_app_name_comes_from_the_folder(tmp_path: Path):
+    from stario_create.scaffold import app_name_for
+
+    assert app_name_for(tmp_path / "My App") == "my_app"
+    assert app_name_for(tmp_path / "2048") == "app_2048"
+
+
+def test_scaffold_db_opens_litewriter(tmp_path: Path):
+    scaffold_files(tmp_path, "demo", db=True)
+    text = (tmp_path / "app/main.py").read_text()
+    assert "async with LiteWriter(config.db_path, schema=schema, claim=30) as db:" in text
+    assert "def schema(tx: Tx) -> None:" in text
+    assert _compile_dir(tmp_path) == []
+
+
+def test_scaffold_under_the_guide_writes_no_second_copy(tmp_path: Path):
+    from stario_create.scaffold import guide_above
+
+    (tmp_path / "AGENTS.md").write_text(guide_text())
+    root = tmp_path / "app"
+    assert guide_above(root) == tmp_path / "AGENTS.md"
+    scaffold_files(root, "app", agent_files=False)
+    assert not (root / "AGENTS.md").exists()
+    assert not (root / ".agents").exists()
+    assert (root / "app/main.py").exists()
+
+
+def test_cli_new_in_place_prints_what_it_wrote(tmp_path: Path):
+    if shutil.which("uv") is None:
+        pytest.skip("uv is not on PATH")
+    (tmp_path / "AGENTS.md").write_text(guide_text())
+    out = subprocess.run(
+        [*CLI, "new", "app", "--db", "--no-verify"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.startswith("created app/")
+    for name in ("app/main.py", "app/config.py", "tests/conftest.py", "is the guide"):
+        assert name in out.stdout
+    assert "litewriter" in (tmp_path / "app/pyproject.toml").read_text()
+    assert not (tmp_path / "app/AGENTS.md").exists()
 
 
 def test_cli_sync_fresh_dir(tmp_path: Path):

@@ -10,7 +10,7 @@ Two things ship from here:
 ## New app
 
 ```bash
-uvx stario-create new my-app
+uvx stario-create new my-app --db   # or `new .` for the current folder
 cd my-app
 just dev     # http://127.0.0.1:8000, reloads on change
 just check   # lint, format, types, tests — run before done
@@ -27,7 +27,7 @@ just check   # lint, format, types, tests — run before done
 - `tests/test_pages.py`: the page check that replaces a browser for HTML.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
-`new` also writes a `.dockerignore`. It writes no `Dockerfile`: Yard detects a Stario app and writes the Containerfile itself (stario.dev/yard/what-runs). `new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
+`new` also writes a `.dockerignore`. It writes no `Dockerfile`: Yard detects a Stario app and writes the Containerfile itself (stario.dev/yard/what-runs). The folder may be any path, `.` included; `app_name` comes from its name unless `--name` sets it. `--db` adds litewriter and opens the SQLite file in `bootstrap`. `--dir` picks the parent directory, `--force` writes into a non-empty folder, and `--orjson` adds orjson and sets it as the `stario.json` codec. Inside a repo whose `AGENTS.md` above the folder is already the Stario guide, `new` writes no second copy of the guide or the skills. It ends by printing what each file holds, so an agent does not need to open them.
 
 ## Adding a kit
 
@@ -89,14 +89,15 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 | Skill | Use it when |
 | --- | --- |
-| `stario-feature` | You add a live page in SQLite that every tab sees change, remove a page, or split a folder that grew. |
-| `stario-view` | A page has a sort, a filter, paging, or a search as you type. |
-| `stario-relay` | A live page keeps its state in memory, a command tells only its own tab something, or a page has an edit dialog. |
+| `stario-feature` | A whole page to copy: its SQLite table, reads and writes, the live view, a form command with an error message, and its tests; paging; navigate to a new page. |
+| `stario-view` | A page has a sort, a filter, or a search as you type. |
+| `stario-relay` | A live page keeps its state in memory, a message to one tab after a slow write, or an edit dialog. |
 | `stario-jobs` | A command starts slow work: a job with queued, running, and done. |
 | `stario-browser-check` | Before a browser: the test that answers each question about a page, and the two cases where a browser is right. |
-| `stario-auth` | The app needs accounts: sign-in with Google and GitHub (`add auth`), admin access, protected pages, API tokens, rows that belong to one user. |
-| `stario-api` | Any handler, view, or test code: every signature of `c`, `w`, `h.*`, Relay, Span, TestClient, `data.*`, `at.*`, `SSE`, and how a morph treats the page. |
-| `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
+| `stario-auth` | The app needs accounts: the session cookie, sign-in with Google and GitHub (`add auth`), password sign-in when a spec requires it, protected pages, rows of one user, admin pages, API tokens. |
+| `stario-api` | Any server or test code: every import path and signature, serving on a host and port, a 404 page, redirects, errors, cookies, forms, static files, litewriter, Relay, TestClient. |
+| `stario-datastar` | Any view: `h.*` and its attribute rule, `data.*`, `at.*`, signals, `SSE`, and how a morph treats the page. |
+| `stario-litewriter` | A litewriter table changes shape: JSON tables with virtual columns, indexes, unique values, `push`, how `watch` wakes. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
 | `stario-client` | The page needs JavaScript: where it goes and how Python calls it. |
 

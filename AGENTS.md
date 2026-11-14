@@ -56,7 +56,7 @@ tests/test_<page>.py  tests/conftest.py has the `client` fixture
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.json`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path; a GET route answers HEAD too. `ROUTE.href(room_id, query={...})` builds the URL. No `url_for`.
 - `c.match.params` values are strings: check, then convert. `c.req.query.get("page", "1")`.
-- In `h.*`, attributes come first, children after: `h.A({"href": url}, data.show("$x"), "text")`. Dicts and `data.*` are attributes. A dict after a child raises "HTML attributes must be passed before children" when the page renders, not at import.
+- In `h.*`, attributes come first, children after: `h.A({"href": url}, classes("btn", {"on": on}), data.show("$x"), "text")`. A dict, `classes(...)`, and each `data.*` are attributes; `classes` never goes inside the dict. A dict after a child raises "HTML attributes must be passed before children" when the page renders, not at import. Helper types: `stario-datastar`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 - A middleware with a dependency is a method of a class built in `bootstrap`: `app.use("/", session.attach)`. Handlers read its state through a typed function such as `current_user(c)`, not `c.state[...]`.
@@ -159,7 +159,7 @@ A browser is only for client JS that holds state. No computer use. When the user
 - Sign-in, sessions, accounts, passwords: `stario-auth`.
 - A sort, a filter, paging, a search as you type: `stario-view`.
 - State in memory, a message to one tab, an edit dialog: `stario-relay`.
-- Schema changes, indexes, migrations, `push`: `stario-litewriter`.
+- A table that already holds rows changes shape (a new field, a dropped column): `stario-litewriter`.
 - Work that takes seconds, or a loop on a timer: `stario-jobs`.
 - JavaScript: `stario-client`. Tailwind and DaisyUI: `stario-tailwind-daisyui`. Before a browser: `stario-browser-check`.
 

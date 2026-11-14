@@ -1,6 +1,6 @@
 ---
 name: stario-litewriter
-description: Grow a litewriter (SQLite) schema in a Stario app - the id plus JSON document table, a new field or filter as a virtual column, an index, a unique value, dropping a column, push and submit, and how watch decides to wake. Use when a table changes shape or a query needs an index. Opening the file, reads, writes, and watch are in stario-api and stario-feature.
+description: Change a litewriter (SQLite) table that already holds rows in a Stario app - the id plus JSON document shape, a new field or filter as a virtual column, an index on it, dropping a column, push and submit, and how watch decides to wake. Opening the file, reads, writes, watch, and unique indexes are in stario-api; a new page's table is in stario-feature.
 ---
 
 # SQLite with litewriter
