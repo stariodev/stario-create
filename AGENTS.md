@@ -2,7 +2,7 @@
 
 How to build a Stario app, unless the developer asks for something else.
 
-Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Not ASGI: no Uvicorn, FastAPI, Jinja, or response objects. Docs: https://stario.dev/docs.
+Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Not ASGI: no Uvicorn, FastAPI, Jinja, or response objects.
 
 This file holds the rules and the shape of a page. Two skills hold every import path and signature: `stario-api` (server: the port, a 404 page, redirects, errors, cookies, forms, static files, SQLite, tests) and `stario-datastar` (page: `h.*`, `data.*`, `at.*`, `SSE`). Read both once before you write code. Never read the stario source in site-packages: what they do not list, pyrefly checks.
 
@@ -42,7 +42,7 @@ app/assets.py         ASSETS (static/ at /static), STYLE_CSS, DATASTAR_JS, SCRIP
 app/common/shell.py   page(title, body): the <html> document
 app/features/<page>/  urls.py (Routes), views.py (render), handlers.py (the page class), data.py (SQL)
 app/<name>/           code with no URL; never imports features/
-static/css/ static/js/   files the pages load: ASSETS.href("css/app.css")
+static/               css/ and js/ the pages load: ASSETS.href("css/app.css")
 tests/test_<page>.py  tests/conftest.py has the `client` fixture
 ```
 
@@ -132,14 +132,14 @@ def render(todos: list[Todo]) -> HtmlElement:  # views.py
 
 - `render(...)` returns the whole document from state. It does not fetch. The element with `data.init` and `data.signals(..., if_missing=True)` keeps its tag, `id`, and attributes in every render.
 - Signals carry what the user types. A leading `_` keeps a signal in the tab: the server can set it, the browser never sends it.
-- A busy form: `data.indicator("_saving")` on the `<form>`, `data.attr("disabled", "$_saving")` on its button. A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
+- A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
 - A page with several tables: watch one small query that changes when the page should (`SELECT count(*), max(id) FROM comments WHERE article_id = :id`), and read the rest inside the loop.
 
 A page is one class in `handlers.py`; its fields are its dependencies. A read or a write is a function in `data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`. No service classes, repositories, base pages, or `utils`. The skill `stario-feature` is a whole page with its tables, views, and tests, ready to copy.
 
 ## Write in few steps
 
-Plan the routes, tables, and shared markup first. Then write the app in a few large steps: one command (a chain of heredocs, or several writes in one message) can create ten files, and a feature (`urls.py`, `data.py`, `views.py`, `handlers.py`) is never split across steps. Do not reopen a file you just wrote to tidy it: let `just check` and the tests say what is wrong. A wrong name costs a rewrite: look it up in the skills before you write it.
+Plan the routes, tables, and shared markup first. Then write the app in a few large steps: one command (a chain of heredocs, or several writes in one message) can create ten files, and a feature (`urls.py`, `data.py`, `views.py`, `handlers.py`) is never split across steps. Do not reopen a file you just wrote to tidy it; `just check` and the tests say what is wrong. A wrong name costs a rewrite: look it up in the skills before you write it.
 
 ## Tests
 
