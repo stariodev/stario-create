@@ -67,7 +67,8 @@ _NEW_SUMMARY = """\
   static/                css/style.css (plain CSS), js/datastar.js
   tests/conftest.py      fixture `client`: TestClient(bootstrap), PROJECT_DATA_DIR=tmp_path
   tests/test_pages.py    checks every page: links, routes, ids, signals (needs no edit)
-  tests/test_home.py tests/test_js.py{agent_note}"""
+  tests/test_home.py     asserts id="home" on /; change it with the home page
+  tests/test_js.py       each app.<name> call in a view has static/js/<name>.js{agent_note}"""
 
 
 def cmd_new(args: argparse.Namespace) -> int:
