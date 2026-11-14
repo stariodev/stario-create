@@ -6,7 +6,7 @@ Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the 
 
 This file holds the rules and the shape of a page. Two skills hold every import path and signature: `stario-api` (server: the port, a 404 page, redirects, errors, cookies, forms, static files, SQLite, tests) and `stario-datastar` (page: `h.*`, `data.*`, `at.*`, `SSE`). Read both once before you write code. Never read the stario source in site-packages: what they do not list, pyrefly checks.
 
-The last section of this file holds the notes of this app, under 4 KB. A deep note on one topic goes in its own file, named by a line such as "Read `EDITOR.md` before you change the editor."
+The last section of this file holds the notes of this app, under 4 KB. A deep note on one topic goes in its own file, named by a line such as "Read `EDITOR.md` first."
 
 ## Start an app
 
@@ -14,7 +14,7 @@ The last section of this file holds the notes of this app, under 4 KB. A deep no
 uvx stario-create@latest new app --db   # the folder: `app`, `.`, any path; --db adds SQLite
 ```
 
-One command, run where the app should live. It installs the dependencies, writes a tested app, runs its tests, and prints what each file holds. Do not open the files to learn them: `app/main.py` is below, and the rest is the layout in the next section. Without `--db`, `main.py` has no `LiteWriter` and no `schema`.
+Run it where the app should live. It installs the dependencies, writes a tested app, runs its tests, and prints what each file holds. Do not open the files to learn them: `app/main.py` is below, and the rest is the layout in the next section. Without `--db`, `main.py` has no `LiteWriter` and no `schema`.
 
 ```python
 async def bootstrap(app: App, span: Span):
@@ -79,7 +79,7 @@ The stream is the only thing that sends the page's HTML. It follows `db.watch(qu
 
 1. Read: `await read_signals(c.req)` (a Datastar action), `c.match.params`. A plain HTML form or an upload: `await read_form(c.req)`.
 2. Validate: bad input gets `SSE(w).patch_signals({"_error": "why"})` for the form to show, or `w.text("why", status=400)`, and `return`.
-3. Reply: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)` to go to another page.
+3. Reply: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`. Only the command navigates: a stream whose row is gone just returns.
 4. Execute: `await db.write(...)`, or change memory, then `relay.publish(...)`.
 
 ## A page in code
