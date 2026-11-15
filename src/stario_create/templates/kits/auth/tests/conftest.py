@@ -11,8 +11,8 @@ from stario.testing import TestClient
 
 from app.auth.providers import Http
 from app.auth.providers.google import GOOGLE
-from app.urls import LOGIN_CALLBACK, LOGIN_START
 from app.main import bootstrap
+from app.urls import LOGIN_CALLBACK, LOGIN_START
 
 
 class FakeProviders(Http):

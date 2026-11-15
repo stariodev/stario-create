@@ -10,12 +10,11 @@ from stario.datastar import SSE
 from stario.forms import read_form
 from stario.markup import HtmlElement
 
+from app.auth.data import add_login
 from app.auth.providers import Flow, LoginFailed, Provider
 from app.auth.session import Session, current_user, local_path
-from app.auth.data import add_login
 from app.layout import page
 from app.urls import HOME, LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
-
 
 # The button text for each provider name in app/main.py.
 # Sign out is a plain form anywhere: h.Form({"method": "post", "action": LOGOUT.href()}, ...)
