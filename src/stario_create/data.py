@@ -44,6 +44,13 @@ def skill_text(name: str) -> str:
     return resource(f"skills/{name}/SKILL.md").read_text()
 
 
+def skill_files(name: str) -> list[str]:
+    """The files of one skill, relative to its folder: SKILL.md, then references/*.md."""
+    folder = resource(f"skills/{name}/SKILL.md").parent
+    refs = sorted(p.relative_to(folder).as_posix() for p in folder.glob("references/*.md"))
+    return ["SKILL.md", *refs]
+
+
 def guide_text(profile: str = "app") -> str:
     """The bundled guide. The "api" profile ships a shorter JSON API guide."""
     return resource("AGENTS-api.md" if profile == "api" else "AGENTS.md").read_text()

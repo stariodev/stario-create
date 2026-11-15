@@ -68,13 +68,13 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.pyrefly]
 python-version = "3.14"
 project-includes = ["src", "tests"]
-project-excludes = ["src/stario_create/templates", "**/.venv", "**/__pycache__"]
+project-excludes = ["src/stario_create/templates", "**/.venv", "**/__pycache__", ".examples"]
 
 [tool.ruff]
 target-version = "py314"
 line-length = 100
 src = ["src", "tests"]
-extend-exclude = ["evals/fixtures", "src/stario_create/templates"]
+extend-exclude = ["evals/fixtures", "src/stario_create/templates", ".examples"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "SIM", "RUF", "PT"]

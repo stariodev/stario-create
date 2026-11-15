@@ -1,3 +1,4 @@
+<!-- BEGIN stario-create -->
 # Stario API guide
 
 How to build a Stario JSON API. This is the default; when the developer asks for something else, do that. App notes live in `## This app` at the end.
@@ -50,6 +51,8 @@ Tests run the production `bootstrap` through `TestClient`. Each route: a good re
 ## Cursor Cloud specific instructions
 
 Install is `.cursor/cloud-install.sh`. Prove a change with `TestClient`. Do not use computer use.
+
+<!-- END stario-create -->
 
 ## This app
 
