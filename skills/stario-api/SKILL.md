@@ -117,9 +117,11 @@ UPLOADS = Files(config.data_dir / "uploads", "/uploads")  # live files, ETag
 
 `ASSETS.href` raises at import when the file is missing. A file the spec gives: copy it into `static/`.
 
-## JSON
+## JSON and outside HTTP APIs
 
 `stario.json.dumps(value) -> str`, `loads(text)`. `w.json(value)` answers JSON.
+
+Stario has no HTTP client. For an outside API, `uv add httpx` first, open one `httpx.AsyncClient(base_url=config.api_url, timeout=10)` with `async with` in `bootstrap`, and pass it to the pages that need it, like `db`. Code that knows the API's shape goes in `app/<api>.py`.
 
 ## litewriter (SQLite)
 
