@@ -124,14 +124,12 @@ def scaffold_files(
 
     w("app/__init__.py", "")
     w("app/config.py", _fill("app/config.py.tmpl", app_name=app_name))
-    w("app/assets.py", _fill("app/assets.py.tmpl"))
-    w("app/common/__init__.py", "")
-    w("app/common/shell.py", _fill("app/common/shell.py.tmpl"))
-    w("app/features/__init__.py", "")
-    w("app/features/home/__init__.py", "")
-    w("app/features/home/urls.py", _fill("app/features/home/urls.py.tmpl"))
-    w("app/features/home/views.py", _fill("app/features/home/views.py.tmpl"))
-    w("app/features/home/handlers.py", _fill("app/features/home/handlers.py.tmpl"))
+    w("app/layout.py", _fill("app/layout.py.tmpl"))
+    w("app/urls.py", _fill("app/urls.py.tmpl"))
+    if db:
+        w("app/data.py", _fill("app/data.py.tmpl"))
+    w("app/pages/__init__.py", "")
+    w("app/pages/home.py", _fill("app/pages/home.py.tmpl"))
     w(
         "app/main.py",
         _fill(

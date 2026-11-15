@@ -1,6 +1,6 @@
 ---
 name: stario-litewriter
-description: Change a litewriter (SQLite) table that already holds rows in a Stario app - the id plus JSON document shape, a new field or filter as a virtual column, an index on it, dropping a column, push and submit, and how watch decides to wake. Opening the file, reads, writes, watch, and unique indexes are in stario-api; a new page's table is in stario-feature.
+description: Change a SQLite table that already holds rows: a new field, a virtual column and index, dropping a column, push and submit, how watch wakes.
 ---
 
 # SQLite with litewriter
@@ -40,17 +40,13 @@ LiteError                        # base of QueryError, StateError, ClaimBusy
 ## Open the file in bootstrap
 
 ```python
-from litewriter import LiteWriter, Tx
+from litewriter import LiteWriter
 from stario import App, Relay, Span
 
-from app.assets import ASSETS
 from app.config import Config
-from app.features.todos import data as todos_data
-from app.features.todos.handlers import TodosPage
-
-
-def schema(tx: Tx) -> None:
-    todos_data.schema(tx)
+from app.data import schema
+from app.layout import ASSETS
+from app.pages.todos import TodosPage
 
 
 async def bootstrap(app: App, span: Span):
@@ -61,7 +57,7 @@ async def bootstrap(app: App, span: Span):
         yield
 ```
 
-`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. An upload also goes in `config.data_dir`. `async with` claims the file, runs `schema` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper goes around it.
+`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. An upload also goes in `config.data_dir`. `async with` claims the file, runs `schema` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. `schema` in `app/data.py` creates every table. Pass `db` to each page class. No wrapper goes around it.
 
 ## Tables: `id` plus `data`
 
@@ -137,7 +133,7 @@ count = db.value("SELECT count(*) FROM todos")
 
 ## Writes
 
-A write is a plain `def` whose first argument is `tx`, in the page's `data.py`. The writer runs it in one transaction and commits in a batch. You do not commit. A command reads, validates, replies, and then writes:
+A write is a plain `def` whose first argument is `tx`, in `app/data.py`. The writer runs it in one transaction and commits in a batch. You do not commit. A command reads, validates, replies, and then writes:
 
 - `await db.write(fn, ...)` is the default. The browser has its answer already, so the wait (up to 1/60 s) costs it nothing. The handler gets the result or the exception, and a failure reaches the request span.
 - `db.push(fn, ...)` returns before the commit, so a read soon after it can miss the row. A failure goes to the `litewriter` logger. Push only a counter or a last-seen stamp.

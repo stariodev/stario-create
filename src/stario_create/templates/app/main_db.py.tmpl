@@ -1,24 +1,22 @@
 import asyncio
 $orjson_import
-from litewriter import LiteWriter, Tx
+from litewriter import LiteWriter
 from stario import App, Span$json_import, serve
 from stario.http import same_origin, security_headers
 
-from app.assets import ASSETS
 from app.config import Config
-from app.features.home.handlers import HomePage
-
-
-def schema(tx: Tx) -> None:
-    """Create every table: one call per page that owns tables, e.g. todos_data.schema(tx)."""
+from app.data import schema
+from app.layout import ASSETS
+from app.pages.home import HomePage
 
 
 async def bootstrap(app: App, span: Span):
 $codec    config = Config.from_env()
-    async with LiteWriter(config.db_path, schema=schema, claim=30) as db:
+    # The pages that keep data take `db`: TodosPage(db).register(app).
+    async with LiteWriter(config.db_path, schema=schema, claim=30) as db:  # noqa: F841
         app.use("/", same_origin(), security_headers())
         span.attrs(await ASSETS.attach(app))
-        # pages: one register line each; a page with data gets `db`
+        # pages: one register line each
         HomePage(config.app_name).register(app)
         yield
 

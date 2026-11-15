@@ -59,14 +59,13 @@ _NEW_SUMMARY = """\
   app/config.py          Config: a field with a default per setting, read from the env
                          var of its name in capitals; data_dir from PROJECT_DATA_DIR
                          (default ./data); db_path = data_dir / "app.sqlite3"
-  app/assets.py          ASSETS = Assets(static/, "/static"); STYLE_CSS, DATASTAR_JS,
-                         SCRIPTS (tuple of static/js hrefs)
-  app/common/shell.py    page(title, body): the <html> document, with a #toast output
-  app/features/home/     urls.py HOME = Route("GET /"); views.py render(app_name) and
-                         LINKS; handlers.py HomePage(app_name) with register and show
+  app/layout.py          ASSETS (static/ at /static), STYLE_CSS, DATASTAR_JS, SCRIPTS;
+                         page(title, body): the <html> document with a #toast; shared markup
+  app/urls.py            every Route, grouped by page: HOME = Route("GET /"){db_file}
+  app/pages/home.py      HomePage(app_name): register, show; render(app_name); LINKS
   static/                css/style.css (plain CSS), js/datastar.js
   tests/conftest.py      fixture `client`: TestClient(bootstrap), PROJECT_DATA_DIR=tmp_path
-  tests/test_pages.py    checks every page: links, routes, ids, signals (needs no edit)
+  tests/test_pages.py    checks every page: links, routes, ids, signals (keep it, no edit)
   tests/test_home.py     asserts id="home" on /; change it with the home page
   tests/test_js.py       each app.<name> call in a view has static/js/<name>.js{agent_note}"""
 
@@ -143,10 +142,13 @@ def cmd_new(args: argparse.Namespace) -> int:
             db_note="\n                         async with LiteWriter(config.db_path, schema=schema) as db,"
             if args.db
             else "",
+            db_file="\n  app/data.py            schema(tx) for the tables; the rows and every read and write"
+            if args.db
+            else "",
             agent_note=agent_note,
         )
     )
-    print("next: add pages as app/features/<page>/ (AGENTS.md shows the shape); just check")
+    print("next: add each page as app/pages/<page>.py and its routes in app/urls.py; just check")
     return 0
 
 

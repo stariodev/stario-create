@@ -1,6 +1,6 @@
 ---
 name: stario-client
-description: Client behaviour in a Stario app - where JavaScript goes and how Python calls it. Use before you write any JavaScript, a <script>, addEventListener, or a data.on expression longer than two statements, and when a page needs drag, swipe, a picker or ruler, keyboard or viewport handling, clipboard, dictation, a file preview, or a theme toggle.
+description: JavaScript in a Stario app: where it goes and how Python calls it. Load before any <script>, addEventListener, long data.on expression, drag, picker, clipboard, or theme toggle.
 ---
 
 # Client behaviour
@@ -75,7 +75,7 @@ h.Button({"type": "button"}, data.on("click", "$_weight_ruler.ruler.step(1)"), "
 
 ## Loading
 
-`app/assets.py` lists the files; the shell loads them before Datastar, so `app` exists when Datastar runs the first `data-init`:
+`SCRIPTS` in `app/layout.py` lists the files; `page()` loads them before Datastar, so `app` exists when Datastar runs the first `data-init`:
 
 ```python
 SCRIPTS = tuple(ASSETS.href(f"js/{name}.js") for name in ("theme", "share", "ruler"))

@@ -20,7 +20,7 @@ def test_guide_fits_rule_loader_budget(profile):
     # Rule loaders (Devin) cut always-on rules at 16 KB. The app guide holds the
     # page shape that agents otherwise read from two or three skills, and still
     # leaves the `## This app` notes (4 KB) room under that cut.
-    assert len(guide_text(profile).encode()) <= (11_000 if profile == "app" else 9_000)
+    assert len(guide_text(profile).encode()) <= (12_000 if profile == "app" else 9_000)
 
 
 @pytest.mark.parametrize("name", skill_names())
@@ -191,4 +191,4 @@ def test_api_skill_answers_what_agents_probed_for():
 def test_guide_starts_an_app_in_one_command():
     text = guide_text()
     assert "uvx stario-create@latest new app --db" in text
-    assert "Do not open the files to learn them" in text
+    assert "Change the scaffold's files in place" in text

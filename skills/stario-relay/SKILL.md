@@ -1,6 +1,6 @@
 ---
 name: stario-relay
-description: A live Stario page on state in memory (a chat room, a board, a list kept in memory) through one Relay, a message to one tab after a slow write, an edit dialog that stays open and keeps what the user typed while others change the list, and a value one tab remembers. Not needed for SQLite pages (db.watch) or form errors (patch_signals).
+description: A live Stario page on state in memory through Relay, a message to one tab, an edit dialog that keeps what the user typed. Not needed for SQLite pages.
 ---
 
 # Relay: state in memory and messages to one tab
@@ -17,7 +17,7 @@ One `Relay[dict]` per app, built in `bootstrap`, shared by every page. Two kinds
 Notes that several people rename at once. The edit dialog survives each repaint.
 
 ```python
-# data.py
+# app/data.py
 from dataclasses import dataclass, field
 from itertools import count
 
@@ -49,7 +49,7 @@ def add_note(notes: Notes, title: str) -> Note:
 ```
 
 ```python
-# urls.py
+# app/urls.py
 NOTES = Route("GET /notes")
 NOTES_LIVE = Route("GET /notes/live")
 ADD_NOTE = Route("POST /notes")
@@ -57,7 +57,7 @@ RENAME_NOTE = Route("POST /notes/rename")
 ```
 
 ```python
-# views.py
+# app/pages/<page>.py: render
 def render(notes: list[Note], tab: str) -> HtmlElement:
     return page(
         "Notes",
@@ -106,7 +106,7 @@ def item(n: Note) -> HtmlElement:
 ```
 
 ```python
-# handlers.py
+# app/pages/<page>.py: the page class
 import uuid
 from dataclasses import dataclass
 

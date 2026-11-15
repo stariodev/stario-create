@@ -3,9 +3,9 @@ $orjson_import
 from stario import App, Span$json_import, serve
 from stario.http import same_origin, security_headers
 
-from app.assets import ASSETS
 from app.config import Config
-from app.features.home.handlers import HomePage
+from app.layout import ASSETS
+from app.pages.home import HomePage
 
 
 async def bootstrap(app: App, span: Span):

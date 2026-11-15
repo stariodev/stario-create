@@ -3,7 +3,7 @@ GitHub API, and state plus PKCE tie the callback to this browser."""
 
 import urllib.parse
 
-from app.common.providers import Flow, Http, Identity, LoginFailed, plain_email
+from app.auth.providers import Flow, Http, Identity, LoginFailed, plain_email
 
 GITHUB = "https://github.com"
 

@@ -1,6 +1,6 @@
 ---
 name: stario-datastar
-description: The page side of Stario, every signature - h.* tags and their attribute rule, classes, SafeString, data.* attributes, at.* actions, Datastar expressions and signals, read_signals, SSE (patch_elements, patch_signals, navigate), and how a morph treats the page. Read it with stario-api before you write views.
+description: The Stario page side, every signature: h.* tags, classes, data.* attributes, at.* actions, signals, read_signals, SSE patch_elements, patch_signals, navigate. Read with stario-api before writing views.
 ---
 
 # The page side: h, data, at, SSE
@@ -65,7 +65,7 @@ data.indicator(name)                     # $name is true while this element's re
 data.init(expr, delay=None)
 data.on(event, expr, once=, passive=, capture=, delay=, debounce=, throttle=,
         target=None,                     # "window" | "document" | "outside"
-        prevent=False, stop=False)
+        prevent=False, stop=False)       # delay/debounce/throttle: "300ms"; a bare 300 is seconds
 data.on_intersect(expr, threshold=, once=, exit=, delay=, debounce=, throttle=)
 data.on_interval(expr, duration="1s", leading=False)
 data.on_signal_patch(expr, delay=, debounce=, throttle=, include=, exclude=)

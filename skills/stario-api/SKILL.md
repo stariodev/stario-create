@@ -1,6 +1,6 @@
 ---
 name: stario-api
-description: Every Stario import path and signature, server side - serve on a host and port, routes, a catch-all and a 404 page, Context, Request, Writer, redirects, errors, cookies and a signed session, forms, static files, JSON, litewriter (SQLite), Relay, and TestClient (JSON, form posts, streams). Read it once before you write Stario code, and look names up here instead of in site-packages. The page side (h.*, data.*, at.*, SSE) is in stario-datastar.
+description: Every Stario server-side import and signature: serve, routes, a 404 page, Context, Writer, redirects, errors, cookies, sessions, forms, static files, JSON, litewriter, Relay, TestClient. Read once before writing Stario code; never read site-packages.
 ---
 
 # The Stario API, server side

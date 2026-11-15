@@ -36,6 +36,15 @@ def test_auth_fills_the_app_name_and_replaces_untouched_files(app: Path):
     assert not (app / "app/features/signup").exists()
 
 
+def test_auth_appends_its_routes_to_urls_once(app: Path):
+    add_kit(app, "auth")
+    add_kit(app, "auth")
+    urls = (app / "app/urls.py").read_text()
+    assert 'HOME = Route("GET /")' in urls
+    assert urls.count('LOGIN = Route("GET /login")') == 1
+    assert (app / "app/data.py").is_file()
+
+
 def test_a_changed_file_is_left_for_a_merge(app: Path):
     main = app / "app/main.py"
     main.write_text(main.read_text() + "# mine\n")
@@ -50,7 +59,7 @@ def test_tailwind_appends_its_recipes_once(app: Path):
     justfile = (app / "justfile").read_text()
     assert justfile.count("\ntailwind:") == 1
     assert "\ncheck:" in justfile
-    assert "css/output.css" in (app / "app/assets.py").read_text()
+    assert "css/output.css" in (app / "app/layout.py").read_text()
     assert "tailwindcss" in (app / ".gitignore").read_text().splitlines()
 
 

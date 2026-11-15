@@ -7,7 +7,8 @@ A ``*.tmpl`` file takes ``$app_name`` and loses its suffix. For each file:
 - a file that equals the scaffold version (the app never changed it) is replaced;
 - any other file is kept, and the result names it for a merge by hand.
 
-A ``justfile`` in a kit is appended once. The agent then reads the files,
+A ``justfile`` in a kit is appended once, and so are the routes in its ``app/urls.py``
+(each app keeps every route in that file). The agent then reads the files,
 not a skill that holds their text.
 """
 
@@ -39,6 +40,7 @@ KITS: dict[str, Kit] = {
         help="sign-in with Google and GitHub through OAuth; a session cookie; tests",
         # SignedCookie is new in stario 5.4.0.
         deps=("stario>=5.4.0,<6", "litewriter>=0.3.2,<0.4"),
+        create_only=("app/data.py",),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
             "Create an OAuth client at each provider (Google: Google Auth Platform, Clients, Web).",
@@ -68,9 +70,8 @@ KITS: dict[str, Kit] = {
 # The scaffold version of each file a kit may replace.
 _SCAFFOLD: dict[str, tuple[str, ...]] = {
     "app/config.py": ("app/config.py.tmpl",),
-    "app/main.py": ("app/main.py.tmpl",),
-    "app/assets.py": ("app/assets.py.tmpl",),
-    "app/common/shell.py": ("app/common/shell.py.tmpl",),
+    "app/main.py": ("app/main.py.tmpl", "app/main_db.py.tmpl"),
+    "app/layout.py": ("app/layout.py.tmpl",),
     "tests/conftest.py": ("tests/conftest.py.tmpl",),
 }
 
@@ -141,6 +142,14 @@ def add_kit(root: Path, name: str) -> Added:
             first = next(line for line in text.splitlines() if line and line[0].isalpha())
             if first not in current.splitlines():
                 dest.write_text(current.rstrip("\n") + "\n" + text)
+                added.written.append(rel)
+            continue
+        if rel == "app/urls.py" and dest.is_file():
+            current = dest.read_text()
+            block = text.split("\n\n", 1)[1]  # the routes, without the import
+            first = next(line for line in block.splitlines() if "Route(" in line)
+            if first not in current.splitlines():
+                dest.write_text(current.rstrip("\n") + "\n\n" + block)
                 added.written.append(rel)
             continue
         if dest.is_file():

@@ -1,6 +1,6 @@
-"""The page check: each HTML page that a link or a GET route in urls.py reaches.
+"""The page check: each HTML page that a link or a GET route in app/urls.py reaches.
 
-It needs no edit. A page test with rows calls `assert not await check(client, url)`.
+Keep this file; it needs no edit. A test with rows calls `assert not await check(client, url)`.
 """
 
 import importlib
@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from stario import Route
 
-FEATURES = Path(__file__).parent.parent / "app" / "features"
+APP = Path(__file__).parent.parent / "app"
 LIMIT = 50
 
 ACTION = re.compile(r"@(get|post|put|patch|delete)\(\s*'([^']*)'")
@@ -133,10 +133,12 @@ async def check(client, url: str) -> list[str]:
 
 
 async def html_routes(client) -> list[str]:
-    """Each GET route with no path parameter in app/features/*/urls.py that answers HTML."""
+    """Each GET route with no path parameter in app/urls.py (or app/features/*/urls.py)."""
     found = []
-    for path in sorted(FEATURES.glob("*/urls.py")):
-        urls = importlib.import_module(f"app.features.{path.parent.name}.urls")
+    modules = ["app.urls"] if (APP / "urls.py").is_file() else []
+    modules += [f"app.features.{p.parent.name}.urls" for p in sorted(APP.glob("features/*/urls.py"))]
+    for name in modules:
+        urls = importlib.import_module(name)
         for route in vars(urls).values():
             if not isinstance(route, Route) or route.method != "GET" or "{" in route.target:
                 continue

@@ -4,17 +4,29 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from litewriter import LiteWriter
-from stario import App, Context, Writer
+from stario import App, Context, Writer, h
 from stario.cookies import SignedCookie
 from stario.datastar import SSE
 from stario.forms import read_form
+from stario.markup import HtmlElement
 
-from app.common.providers import Flow, LoginFailed, Provider
-from app.common.session import Session, current_user, local_path
-from app.features.home.urls import HOME
-from app.features.login.data import add_login
-from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
-from app.features.login.views import render
+from app.auth.providers import Flow, LoginFailed, Provider
+from app.auth.session import Session, current_user, local_path
+from app.auth.data import add_login
+from app.layout import page
+from app.urls import HOME, LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
+
+
+# The button text for each provider name in app/main.py.
+# Sign out is a plain form anywhere: h.Form({"method": "post", "action": LOGOUT.href()}, ...)
+LABELS = {"google": "Google", "github": "GitHub"}
+
+ERRORS = {
+    "denied": "The sign-in was cancelled.",
+    "expired": "The sign-in did not finish. Try again.",
+    "failed": "The sign-in did not work. Try again.",
+    "not_allowed": "This account has no access.",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,3 +125,24 @@ class LoginPage:
     def _fail(self, c: Context, w: Writer, error: str, reason: str) -> None:
         c.span.attrs({"login.error": error, "login.reason": reason})
         w.redirect(LOGIN.href(query={"error": error}), status=303)
+
+
+def render(providers: list[str], next_url: str, error: str) -> HtmlElement:
+    message = ERRORS.get(error)
+    return page(
+        "Sign in",
+        h.Main(
+            {"id": "login"},
+            h.H1("Sign in"),
+            h.P({"role": "alert"}, message) if message else None,
+            # Plain forms: the answer is a redirect to the provider.
+            [
+                h.Form(
+                    {"method": "post", "action": LOGIN_START.href(name)},
+                    h.Input({"type": "hidden", "name": "next", "value": next_url}),
+                    h.Button({"type": "submit"}, f"Continue with {LABELS.get(name, name)}"),
+                )
+                for name in providers
+            ],
+        ),
+    )

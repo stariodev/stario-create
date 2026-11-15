@@ -1,15 +1,15 @@
 ---
 name: stario-feature
-description: A whole Stario page to copy - its SQLite table, reads and writes, the live view, a form command with an error message, its tests - plus navigate to a new page, and paging. Use when you add a page that keeps data, or a page does not refresh in other tabs. Sort, filter, search - stario-view. Memory or one-tab messages - stario-relay. Slow work - stario-jobs.
+description: A whole Stario page to copy: its SQLite table, reads and writes, live view, form command with an error, tests; navigate after create; paging. Use to add a page that keeps data.
 ---
 
 # A whole page
 
-`AGENTS.md` holds the rules; `stario-api` and `stario-datastar` hold the names. Copy the four files below, rename, and write each feature in one step.
+`AGENTS.md` holds the rules; `stario-api` and `stario-datastar` hold the names. Copy the three parts below, rename, and write them in one step.
 
-1. One folder `app/features/<page>/` with `__init__.py`, named after the URL noun: `/rooms/{room_id}` is `room`.
-2. Rows in SQLite (`new --db`, or `uv add "litewriter>=0.3.3,<0.4"`): `db.watch`. In memory: `stario-relay`.
-3. `app/main.py`: `todos_data.schema(tx)` in `schema`, `TodosPage(db).register(app)` under `# pages`. `(TODOS, "Todos")` in `LINKS` (home `views.py`).
+1. Routes in `app/urls.py`, under a comment with the page name.
+2. Rows in SQLite (`new --db`, or `uv add "litewriter>=0.3.3,<0.4"` and an `app/data.py`): the table, its row dataclass, its reads and writes in `app/data.py`, and its `CREATE TABLE` in `schema`. In memory: `stario-relay`.
+3. The page in `app/pages/<page>.py`, named after the URL noun: `/rooms/{room_id}` is `room.py`. `app/main.py`: `TodosPage(db).register(app)` under `# pages`. `(TODOS, "Todos")` in `LINKS` in `app/pages/home.py`.
 4. Tests as AGENTS.md says, then `just check`.
 
 ## A live page
@@ -17,9 +17,8 @@ description: A whole Stario page to copy - its SQLite table, reads and writes, t
 A shared todo list. The stream follows `db.watch`, so the commands only write.
 
 ```python
-# urls.py
-from stario import Route
-
+# app/urls.py
+# todos
 TODOS = Route("GET /todos")
 TODOS_LIVE = Route("GET /todos/live")
 ADD_TODO = Route("POST /todos")
@@ -27,7 +26,7 @@ TOGGLE_TODO = Route("POST /todos/{todo_id}/toggle")
 ```
 
 ```python
-# data.py
+# app/data.py
 from dataclasses import dataclass
 
 from litewriter import LiteWriter, Tx
@@ -83,58 +82,17 @@ def toggle_done(tx: Tx, todo_id: int) -> None:
 ```
 
 ```python
-# views.py
-from stario import h
-from stario.datastar import at, data
-from stario.markup import HtmlElement
-
-from app.common.shell import page
-from app.features.todos.data import Todo
-from app.features.todos.urls import ADD_TODO, TODOS_LIVE, TOGGLE_TODO
-
-
-def render(items: list[Todo]) -> HtmlElement:
-    return page(
-        "Todos",
-        h.Main(
-            {"id": "todos"},
-            data.signals({"title": "", "_error": ""}, if_missing=True),
-            data.init(at.get(TODOS_LIVE.href(), retry="always")),
-            h.Form(
-                data.on("submit", at.post(ADD_TODO.href()), prevent=True),
-                data.indicator("_adding"),
-                h.Input({"type": "text", "maxlength": 200}, data.bind("title")),
-                h.Button({"type": "submit"}, data.attr("disabled", "$_adding"), "Add"),
-            ),
-            h.Ul({"class": "error-messages"}, data.show("$_error"), h.Li(data.text("$_error"))),
-            h.Ul(*[item(t) for t in items]) if items else h.P("No todos yet."),
-        ),
-    )
-
-
-def item(t: Todo) -> HtmlElement:
-    return h.Li(
-        h.Label(
-            h.Input(
-                {"type": "checkbox", "checked": bool(t.done)},
-                data.on("click", at.post(TOGGLE_TODO.href(t.id)), prevent=True),
-            ),
-            h.S(t.title) if t.done else t.title,
-        )
-    )
-```
-
-```python
-# handlers.py
+# app/pages/todos.py
 from dataclasses import dataclass
 
 from litewriter import LiteWriter
-from stario import App, Context, Writer
-from stario.datastar import SSE, read_signals
+from stario import App, Context, Writer, h
+from stario.datastar import SSE, at, data, read_signals
+from stario.markup import HtmlElement
 
-from app.features.todos.data import ITEMS, Todo, add_todo, get_todo, list_todos, toggle_done
-from app.features.todos.urls import ADD_TODO, TODOS, TODOS_LIVE, TOGGLE_TODO
-from app.features.todos.views import render
+from app.data import ITEMS, Todo, add_todo, get_todo, list_todos, toggle_done
+from app.layout import page
+from app.urls import ADD_TODO, TODOS, TODOS_LIVE, TOGGLE_TODO
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +129,37 @@ class TodosPage:
             return
         w.empty()
         await self.db.write(toggle_done, int(todo_id))
+
+
+def render(items: list[Todo]) -> HtmlElement:
+    return page(
+        "Todos",
+        h.Main(
+            {"id": "todos"},
+            data.signals({"title": "", "_error": ""}, if_missing=True),
+            data.init(at.get(TODOS_LIVE.href(), retry="always")),
+            h.Form(
+                data.on("submit", at.post(ADD_TODO.href()), prevent=True),
+                data.indicator("_adding"),
+                h.Input({"type": "text", "maxlength": 200}, data.bind("title")),
+                h.Button({"type": "submit"}, data.attr("disabled", "$_adding"), "Add"),
+            ),
+            h.Ul({"class": "error-messages"}, data.show("$_error"), h.Li(data.text("$_error"))),
+            h.Ul(*[item(t) for t in items]) if items else h.P("No todos yet."),
+        ),
+    )
+
+
+def item(t: Todo) -> HtmlElement:
+    return h.Li(
+        h.Label(
+            h.Input(
+                {"type": "checkbox", "checked": bool(t.done)},
+                data.on("click", at.post(TOGGLE_TODO.href(t.id)), prevent=True),
+            ),
+            h.S(t.title) if t.done else t.title,
+        )
+    )
 ```
 
 `add` replies with `patch_signals` (the error, or a cleared input), then awaits the write. The commit wakes the watch, and every open tab repaints. A page that reads several tables watches one small query that changes with them, and reads the rest in the loop:
@@ -185,7 +174,7 @@ async with self.db.watch(VERSION, article_id=article.id) as versions:
 
 ```python
 # tests/test_todos.py
-from app.features.todos.urls import ADD_TODO, TODOS, TODOS_LIVE, TOGGLE_TODO
+from app.urls import ADD_TODO, TODOS, TODOS_LIVE, TOGGLE_TODO
 
 
 async def test_add_shows_on_every_tab(client):
@@ -239,4 +228,4 @@ The page number is in the query: `TODOS.href(query={"page": 2})`, read with `c.r
 
 ## Remove a page, or split one
 
-Delete its folder and test file, its `register` and `schema` lines, and fix the imports pyrefly reports. Ask before you drop its tables. A `handlers.py` over about 300 lines usually hides a second resource: split by URL noun, not by layer.
+Delete its page file and test file, its routes, its `register` line, and fix the imports pyrefly reports. Ask before you drop its tables. A page file over about 400 lines usually hides a second resource: split by URL noun, not by layer.

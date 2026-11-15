@@ -1,6 +1,6 @@
 ---
 name: stario-browser-check
-description: Load before you open a browser, take a screenshot, run Playwright, or use computer use on a Stario app. It names the test that answers each question about a page without a browser, the order to find a bug, and the two cases where a browser is right - client JavaScript that holds state, and a bug that the HTML does not show.
+description: Load before you open a browser, screenshot, or Playwright on a Stario app: the test that answers each question without a browser, and the two cases where a browser is right.
 ---
 
 # A browser is the last check
@@ -22,7 +22,7 @@ The server writes all the HTML. Datastar morphs it into the page. Thus a questio
 | Does a JavaScript call exist? | `tests/test_js.py`. |
 | Does it look right? | Ask the user. When the user watches the app, the user is the browser. |
 
-An app from before stario-create 5.7 adds the page check with `uvx stario-create@latest add pages`. It finds each page from the links and from the `GET` routes in each `urls.py`.
+An app from before stario-create 5.7 adds the page check with `uvx stario-create@latest add pages`. It finds each page from the links and from the `GET` routes in `app/urls.py` (or each `app/features/*/urls.py`).
 
 ## When the user says that it does not work
 

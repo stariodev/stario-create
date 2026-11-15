@@ -13,7 +13,7 @@ from typing import Any
 
 from stario import json
 
-from app.common.providers import Flow, Http, Identity, LoginFailed, is_secure, plain_email
+from app.auth.providers import Flow, Http, Identity, LoginFailed, is_secure, plain_email
 
 
 class OidcIssuer:

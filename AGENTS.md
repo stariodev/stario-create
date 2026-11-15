@@ -4,7 +4,7 @@ How to build a Stario app, unless the developer asks for something else.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Not ASGI: no Uvicorn, FastAPI, Jinja, or response objects.
 
-This file holds the rules and the shape of a page. Two skills hold every import path and signature: `stario-api` (server: the port, a 404 page, redirects, errors, cookies, forms, static files, SQLite, tests) and `stario-datastar` (page: `h.*`, `data.*`, `at.*`, `SSE`). Read both once before you write code. Never read the stario source in site-packages: what they do not list, pyrefly checks.
+This file holds the rules and the shape of a page. Two skills hold every signature: `stario-api` (server: the port, a 404 page, redirects, errors, cookies, forms, static files, SQLite, tests) and `stario-datastar` (page: `h.*`, `data.*`, `at.*`, `SSE`). Read both once before you write code. Never read the stario source in site-packages: what they do not list, pyrefly checks.
 
 The last section of this file holds the notes of this app, under 4 KB. A deep note on one topic goes in its own file, named by a line such as "Read `EDITOR.md` first."
 
@@ -14,40 +14,26 @@ The last section of this file holds the notes of this app, under 4 KB. A deep no
 uvx stario-create@latest new app --db   # the folder: `app`, `.`, any path; --db adds SQLite
 ```
 
-Run it where the app should live. It installs the dependencies, writes a tested app, runs its tests, and prints what each file holds. Do not open the files to learn them: `app/main.py` is below, and the rest is the layout in the next section. Without `--db`, `main.py` has no `LiteWriter` and no `schema`.
+Run it where the app should live. It installs the dependencies, writes a tested app, runs its tests, and prints what each file holds. `app/main.py` holds `bootstrap(app, span)`: it opens `LiteWriter(config.db_path, schema=schema)` as `db` (`schema` is in `app/data.py`) and registers each page under `# pages`: `TodosPage(db).register(app)`. Without `--db` there is no `LiteWriter` and no `app/data.py`.
 
-```python
-async def bootstrap(app: App, span: Span):
-    config = Config.from_env()
-    async with LiteWriter(config.db_path, schema=schema, claim=30) as db:
-        app.use("/", same_origin(), security_headers())
-        span.attrs(await ASSETS.attach(app))
-        # pages: one register line each; a page with data gets `db`
-        HomePage(config.app_name).register(app)
-        yield
-
-
-if __name__ == "__main__":
-    asyncio.run(serve(bootstrap))  # listens on STARIO_HOST:STARIO_PORT, default 127.0.0.1:8000
-```
-
-`schema(tx)` above it creates the tables. Run the app with `just dev` (reloads) or `just serve`. Another host or port: `STARIO_HOST=0.0.0.0 STARIO_PORT=4000 uv run python -m app.main`. Yard sets `STARIO_HOST`, `STARIO_PORT`, and `PROJECT_DATA_DIR`.
+Run the app with `just dev` (reloads) or `just serve`, on `STARIO_HOST:STARIO_PORT` (default `127.0.0.1:8000`): `STARIO_PORT=4000 uv run python -m app.main`. Yard sets `STARIO_HOST`, `STARIO_PORT`, and `PROJECT_DATA_DIR`.
 
 ## Layout
 
 ```text
-app/main.py           bootstrap: shared objects, one register line per page
-app/config.py         Config: one field with a default per setting; from_env reads FIELD_NAME
-app/assets.py         ASSETS (static/ at /static), STYLE_CSS, DATASTAR_JS, SCRIPTS
-app/common/shell.py   page(title, body): the <html> document
-app/features/<page>/  urls.py (Routes), views.py (render), handlers.py (the page class), data.py (SQL)
-app/<name>/           code with no URL; never imports features/
-static/               css/ and js/ the pages load: ASSETS.href("css/app.css")
-tests/test_<page>.py  tests/conftest.py has the `client` fixture
+app/main.py         bootstrap: shared objects, one register line per page
+app/config.py       Config: one field with a default per setting; from_env reads FIELD_NAME
+app/layout.py       ASSETS, page(title, body): the <html> document, and markup pages share
+app/urls.py         every Route, grouped under a comment per page
+app/data.py         schema(tx), the row dataclasses, every read and write (SQL)
+app/pages/<page>.py one page: its class (the handlers), then its render functions
+app/<name>.py       code with no URL (an API client, a parser); never imports pages
+static/             css/ and js/: ASSETS.href("css/app.css")
+tests/test_<page>.py  tests/conftest.py has `client`; keep test_pages.py and test_js.py
 ```
 
-- A page is one folder, named after the URL noun: `/rooms/{room_id}` is `room`. It gets one line in `LINKS` in `app/features/home/views.py`.
-- A feature may import the `urls.py` and `data.py` of another feature, never its views or handlers. Shared markup (a nav bar, a card) goes in `app/common/`.
+- A page is one file named after the URL noun: `/rooms/{room_id}` is `app/pages/room.py`, with one line in `LINKS` in `app/pages/home.py`. It imports `app.urls`, `app.data`, and `app.layout`, never another page.
+- A file past about 400 lines splits by noun: `app/data.py` becomes `app/data/<noun>.py`.
 - JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string (skill `stario-client`).
 
 ## Rules
@@ -56,7 +42,8 @@ tests/test_<page>.py  tests/conftest.py has the `client` fixture
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.json`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path; a GET route answers HEAD too. `ROUTE.href(room_id, query={...})` builds the URL. No `url_for`.
 - `c.match.params` values are strings: check, then convert. `c.req.query.get("page", "1")`.
-- In `h.*`, attributes come first, children after: `h.A({"href": url}, classes("btn", {"on": on}), data.show("$x"), "text")`. A dict, `classes(...)`, and each `data.*` are attributes; `classes` never goes inside the dict. A dict after a child raises "HTML attributes must be passed before children" when the page renders, not at import. Helper types: `stario-datastar`.
+- In `h.*`, attributes come first, children after: `h.A({"href": url}, classes("btn", {"on": on}), data.show("$x"), "text")`. A dict, `classes(...)`, and each `data.*` are attributes; `classes` never goes inside the dict. A dict after a child raises "HTML attributes must be passed before children" when the page renders, not at import.
+- A bare number in `debounce=`, `delay=`, or `throttle=` is seconds: write `debounce="300ms"`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 - A middleware with a dependency is a method of a class built in `bootstrap`: `app.use("/", session.attach)`. Handlers read its state through a typed function such as `current_user(c)`, not `c.state[...]`.
@@ -84,7 +71,21 @@ The stream is the only thing that sends the page's HTML. It follows `db.watch(qu
 
 ## A page in code
 
+`app/urls.py` gets `TODOS`, `TODOS_LIVE`, and `ADD_TODO`; `app/data.py` the table (skill `stario-feature`). `app/pages/todos.py`:
+
 ```python
+from dataclasses import dataclass
+
+from litewriter import LiteWriter
+from stario import App, Context, Writer, h
+from stario.datastar import SSE, at, data, read_signals
+from stario.markup import HtmlElement
+
+from app.data import ALL_TODOS, Todo, add_todo, list_todos
+from app.layout import page
+from app.urls import ADD_TODO, TODOS, TODOS_LIVE
+
+
 @dataclass(frozen=True, slots=True)
 class TodosPage:
     db: LiteWriter
@@ -112,7 +113,7 @@ class TodosPage:
         await self.db.write(add_todo, title)
 
 
-def render(todos: list[Todo]) -> HtmlElement:  # views.py
+def render(todos: list[Todo]) -> HtmlElement:
     return page(
         "Todos",
         h.Main(
@@ -135,11 +136,20 @@ def render(todos: list[Todo]) -> HtmlElement:  # views.py
 - A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
 - A page with several tables: watch one small query that changes when the page should (`SELECT count(*), max(id) FROM comments WHERE article_id = :id`), and read the rest inside the loop.
 
-A page is one class in `handlers.py`; its fields are its dependencies. A read or a write is a function in `data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`. No service classes, repositories, base pages, or `utils`. The skill `stario-feature` is a whole page with its tables, views, and tests, ready to copy.
+The page class's fields are its dependencies. A read or a write is a function in `app/data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`. No service classes, repositories, base pages, or `utils`.
 
 ## Write in few steps
 
-Plan the routes, tables, and shared markup first. Then write the app in a few large steps: one command (a chain of heredocs, or several writes in one message) can create ten files, and a feature (`urls.py`, `data.py`, `views.py`, `handlers.py`) is never split across steps. Do not reopen a file you just wrote to tidy it; `just check` and the tests say what is wrong. A wrong name costs a rewrite: look it up in the skills before you write it.
+Plan the routes, tables, and shared markup first. Then write `app/urls.py`, `app/data.py`, `app/layout.py`, and the pages in one or two steps: one command (a chain of heredocs, or several writes in one message) can create ten files. Change the scaffold's files in place; do not delete and rewrite them. Do not reopen a file you just wrote to tidy it; `just check` and the tests say what is wrong. A wrong name costs a rewrite: look it up in the skills before you write it.
+
+## Change an existing app
+
+An app keeps the layout it has. `grep -rn 'Route("' app` lists every URL and its file; the page is named by its noun. Read that page, `app/urls.py`, and the part of `app/data.py` it uses, not the whole app. An older app has a folder per page (`app/features/<page>/`: `urls.py`, `views.py`, `handlers.py`, `data.py`): add to it in that shape.
+
+- A new URL: a `Route` in `app/urls.py`, a method on the page class, one line in its `register`.
+- A new field on a table that holds rows: write it into the document, and add a virtual column only when a query filters or sorts by it (skill `stario-litewriter`). `schema` runs at every start: each change in it checks first (`IF NOT EXISTS`, `pragma_table_xinfo`). Never drop a table that holds rows.
+- A new live part (a count, a notice): widen the query the page's stream watches so it changes with the new table.
+- Run the existing tests and the acceptance suite before and after.
 
 ## Tests
 
@@ -155,13 +165,7 @@ A browser is only for client JS that holds state. No computer use. When the user
 
 ## Which skill
 
-- A page with SQLite, a form, a live list: this file, then `stario-feature` for the whole recipe.
-- Sign-in, sessions, accounts, passwords: `stario-auth`.
-- A sort, a filter, paging, a search as you type: `stario-view`.
-- State in memory, a message to one tab, an edit dialog: `stario-relay`.
-- A table that already holds rows changes shape (a new field, a dropped column): `stario-litewriter`.
-- Work that takes seconds, or a loop on a timer: `stario-jobs`.
-- JavaScript: `stario-client`. Tailwind and DaisyUI: `stario-tailwind-daisyui`. Before a browser: `stario-browser-check`.
+A page with SQLite, a form, a live list: `stario-feature`. Accounts and passwords: `stario-auth`. Sort, filter, search: `stario-view`. State in memory, an edit dialog: `stario-relay`. A new column on a table with rows: `stario-litewriter`. Slow work, a timer: `stario-jobs`. JavaScript: `stario-client`. Tailwind: `stario-tailwind-daisyui`. Before a browser: `stario-browser-check`.
 
 ## Cursor Cloud specific instructions
 

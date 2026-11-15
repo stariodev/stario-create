@@ -1,6 +1,6 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app - the signed session cookie, sign-in with Google and GitHub (`stario-create add auth`), password sign-in when a spec requires it, protected pages, rows that belong to one user, admin pages, and API tokens. Use for login, sign-up, sign-out, sessions, "who is the user", per-user data, or a page only some users can open.
+description: Accounts in a Stario app: the session cookie, password sign-in, Google and GitHub sign-in (`stario-create add auth`), protected pages, per-user rows, admin pages, API tokens.
 ---
 
 # Accounts
@@ -12,7 +12,7 @@ Both ways share one session: a `SignedCookie` that holds the user id and an expi
 ## Password sign-in
 
 ```python
-# app/common/session.py
+# app/auth.py
 import hashlib
 import hmac
 import secrets
@@ -79,7 +79,7 @@ LoginPage(db, session).register(app)
 
 `session_secret` is a `Config` field: 32+ random characters from the env. With none set (a laptop, a test), make one once and keep it in `config.data_dir / "session.key"`.
 
-The commands. Hash outside the write, in a thread, since scrypt takes about 50 ms:
+The commands, in `app/pages/login.py` (routes in `app/urls.py`, `add_user` and `get_login` in `app/data.py`). Hash outside the write, in a thread, since scrypt takes about 50 ms:
 
 ```python
 async def sign_up(self, c: Context, w: Writer) -> None:
@@ -115,7 +115,7 @@ Set the cookie before `SSE(w)` sends its first event. A plain `<form method="pos
 
 ## Sign-in with providers
 
-`uvx stario-create@latest add auth` adds `litewriter` and writes tested files: `app/common/providers/` (`Google` on the OIDC code in `oidc.py`, `GitHub` on OAuth 2), `app/common/session.py` (`Session` with `attach` and `require`, `current_user(c)`, `local_path`), `app/features/login/` (`GET /login`, `POST /login/{provider}`, its callback, `POST /logout`, the `users` and `identities` tables, `get_user`), `app/config.py`, and `tests/test_login.py` with `login(client, email=..., provider=...)` against `FakeProviders`. A file the app changed is kept: the command prints `merge by hand: <file>`.
+`uvx stario-create@latest add auth` adds `litewriter` and writes tested files: `app/auth/providers/` (`Google` on the OIDC code in `oidc.py`, `GitHub` on OAuth 2), `app/auth/session.py` (`Session` with `attach` and `require`, `current_user(c)`, `local_path`), `app/auth/data.py` (the `users` and `identities` tables, `get_user`), `app/pages/login.py` (`GET /login`, `POST /login/{provider}`, its callback, `POST /logout`; the routes go at the end of `app/urls.py`), `app/config.py`, and `tests/test_login.py` with `login(client, email=..., provider=...)` against `FakeProviders`. A file the app changed is kept: the command prints `merge by hand: <file>`.
 
 Then create an OAuth client at each provider and register `https://<host>/login/<provider>/callback` (and `http://127.0.0.1:8000/...` for the laptop). Put `SESSION_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (or the `GITHUB_` pair), and `APP_DEV=1` in `.env`; on Yard, `yard env edit --app <name>` without `APP_DEV`. `LOGIN_ALLOWED_EMAILS` (comma-separated) limits who may sign in.
 

@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from litewriter import LiteWriter, Tx
 from stario.json import dumps
 
-from app.common.providers import Identity
-from app.common.providers.github import GITHUB
-from app.common.providers.google import GOOGLE
+from app.auth.providers import Identity
+from app.auth.providers.github import GITHUB
+from app.auth.providers.google import GOOGLE
 
 # The issuers whose verified email may join an existing user. Each one proves that
 # the person owns the address. Add your own issuer only when its users cannot set
