@@ -25,12 +25,16 @@ with every home page, and tidied files they had just written.
   and `app/pages/login.py`, and appends its routes to `app/urls.py`.
   `add tailwind` replaces `app/layout.py`.
 - `tests/test_pages.py` asserts that `/` answers below 400 and reads the
-  routes from `app/urls.py` (or `app/features/*/urls.py`). There is no
-  `tests/test_home.py`.
+  routes from `app/urls.py` (or `app/features/*/urls.py`). A stream that
+  sends only signals passes its check. There is no `tests/test_home.py`.
+- `stario-litewriter` shows how `schema` upgrades a database that already
+  holds rows (check, `ALTER TABLE`, set the old rows in the same step, never
+  recreate). `stario-feature` shows a live count on every page (a navbar
+  badge) as its own stream of one signal.
 - `AGENTS.md`: the new layout, a page as one file with its imports, a section
   on changing an existing app (find the page, add a route, a new field on a
   table with rows, a new live part), the unit of `debounce=` (a bare number
-  is seconds), and "write each file once".
+  is seconds), "write each file once", and that `just check` fixes imports.
 - `stario-api` says how to call an outside HTTP API (one `httpx` client
   opened in `bootstrap`). Every skill shows the new paths.
 - Shorter skill descriptions (4.0 KB to 1.9 KB in all), with no `: ` in the
