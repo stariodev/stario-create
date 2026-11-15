@@ -1,6 +1,6 @@
 ---
 name: stario-tailwind-daisyui
-description: Tailwind CSS v4 and DaisyUI for a Stario app through the standalone binary (`stario-create add tailwind`), no Node, with a light and dark theme.
+description: Tailwind CSS v4 and DaisyUI for a Stario app (stario-create add tailwind, no Node), with a light and dark theme. Use when the app is styled with Tailwind or DaisyUI.
 ---
 
 # Tailwind and DaisyUI without Node
@@ -39,30 +39,14 @@ h.Button(
 
 The labels follow `dark:` utilities, so no script updates them. The server does not store the theme.
 
-A custom theme replaces the `@plugin` block in `input.css`:
-
-```css
-@plugin "../daisyui.mjs" {
-  themes: false;
-}
-
-@plugin "../daisyui-theme.mjs" {
-  name: "app";
-  default: true;
-  color-scheme: light;
-  --color-base-100: #f7f6f1;
-  --color-base-content: #1a1f24;
-  --color-primary: #3d4a6b;
-  --color-primary-content: #f7f6f1;
-}
-```
+A custom theme (colors of the app's own): `references/theme.md`.
 
 ## Classes in views
 
 ```python
 h.Button(classes("btn", "btn-primary"), data.on("click", at.post(SAVE.href())), "Save")
 h.Input(classes("input", "input-bordered", "w-full"), {"type": "text"}, data.bind("title"))
-h.Div(classes("card", "bg-base-200", "shadow"), h.Div(classes("card-body"), ...))
+h.Div(classes("card", "bg-base-200", "shadow"), h.Div(classes("card-body"), h.P(text)))
 ```
 
 - A class is generated only when its literal is in a `.py` file under `app/`. Use `classes("btn", "btn-primary")`, not string concatenation.
@@ -78,4 +62,4 @@ h.Div(classes("card", "bg-base-200", "shadow"), h.Div(classes("card-body"), ...)
 
 - After a class change: `just css`, then commit `static/css/output.css`.
 - A class that does not apply: check that its literal is in a `.py` file under `app/`, then `just css`. A test can assert it: `assert "btn-primary" in (ROOT / "static/css/output.css").read_text()`, with `ROOT` as in `tests/test_js.py`.
-- Whether the page looks right is a question for the user, who watches the app. Do not open a browser or use computer use for a style.
+- Whether the page looks right is a question for the user (skill `stario-browser-check`).

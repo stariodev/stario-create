@@ -1,11 +1,11 @@
 ---
 name: stario-jobs
-description: Slow work in a Stario app (a report, a model call, an import) as a job a command queues and a task runs, with live progress; clean shutdown; a loop on a timer.
+description: Slow work in a Stario app (a report, a model call, an import) as a job with live progress and clean shutdown, and a loop on a timer. Use when a command starts work that takes seconds, or work runs on a schedule.
 ---
 
 # Slow work as a job
 
-`AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. The page is a live page on a `Relay` (skill `stario-relay`): the command queues a job and replies at once. A task does the work inside its own span and publishes each status change. The `queued` row is the click feedback.
+The page is a live page on a `Relay` (skill `stario-relay`): the command queues a job and replies at once. A task does the work inside its own span and publishes each status change. The `queued` row is the click feedback.
 
 ```python
 # app/data.py
@@ -44,35 +44,18 @@ START_REPORT = Route("POST /reports")
 ```
 
 ```python
-# app/pages/reports.py: render
-def render(jobs: list[Job]) -> HtmlElement:
-    return page(
-        "Reports",
-        h.Main(
-            {"id": "reports"},
-            data.init(at.get(REPORTS_LIVE.href(), retry="always")),
-            h.Button(
-                {"type": "button"},
-                data.on("click", at.post(START_REPORT.href())),
-                data.indicator("_starting"),
-                data.attr("disabled", "$_starting"),
-                "Generate report",
-            ),
-            h.Ul(*[h.Li({"id": f"job-{j.id}"}, f"#{j.id} {j.status} {j.result}") for j in jobs]),
-        ),
-    )
-```
-
-The button carries `data.indicator` because its own `data.on` sends the request.
-
-```python
-# app/pages/reports.py: the page class
+# app/pages/reports.py
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from stario import App, Context, Relay, Span, Writer
-from stario.datastar import SSE
+from stario import App, Context, Relay, Span, Writer, h
+from stario.datastar import SSE, at, data
+from stario.markup import HtmlElement
+
+from app.data import Job, Jobs, add_job, list_jobs
+from app.layout import page
+from app.urls import REPORTS, REPORTS_LIVE, START_REPORT
 
 CHANGED = "reports.changed"
 
@@ -100,9 +83,9 @@ class ReportsPage:
 
     async def start(self, c: Context, w: Writer) -> None:
         job = add_job(self.jobs)
-        w.empty()
         self.relay.publish(CHANGED, {})
         c.app.create_task(self.run(job, c.span.step("report.run")))
+        w.empty()
 
     async def run(self, job: Job, span: Span) -> None:
         with span:
@@ -110,7 +93,7 @@ class ReportsPage:
             job.status = "running"
             self.relay.publish(CHANGED, {})
             try:
-                await asyncio.sleep(self.delay)
+                await asyncio.sleep(self.delay)  # the slow work
                 job.result, job.status = f"Report at {datetime.now(UTC):%H:%M:%S}", "done"
             except asyncio.CancelledError:
                 job.result, job.status = "stopped: the server shut down", "failed"
@@ -120,7 +103,27 @@ class ReportsPage:
                 span.fail(str(exc))
             finally:
                 self.relay.publish(CHANGED, {})
+
+
+def render(jobs: list[Job]) -> HtmlElement:
+    return page(
+        "Reports",
+        h.Main(
+            {"id": "reports"},
+            data.init(at.get(REPORTS_LIVE.href(), retry="always")),
+            h.Button(
+                {"type": "button"},
+                data.on("click", at.post(START_REPORT.href())),
+                data.indicator("_starting"),
+                data.attr("disabled", "$_starting"),
+                "Generate report",
+            ),
+            h.Ul(*[h.Li({"id": f"job-{j.id}"}, f"#{j.id} {j.status} {j.result}") for j in jobs]),
+        ),
+    )
 ```
+
+The button carries `data.indicator` because its own `data.on` sends the request.
 
 ```python
 # app/main.py, inside bootstrap before yield
@@ -135,7 +138,7 @@ ReportsPage(Jobs(), relay, config.report_delay).register(app)
 - On shutdown, Stario waits `STARIO_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s), then cancels the task. `CancelledError` marks the job failed and is raised again.
 - A job with several steps passes `c.app` to `run`, checks `app.shutting_down` between the steps, and stops early.
 - Several jobs run at once: each click is its own task.
-- A message to the tab that started the job (a toast when it fails): skill `stario-relay`, A message after the work.
+- A message to the tab that started the job (a toast when it fails): skill `stario-relay`, A message to one tab.
 
 ## A loop on a timer
 
@@ -147,7 +150,7 @@ import asyncio
 
 from stario import App
 
-from .data import Jobs
+from app.data import Jobs
 
 
 async def drop_finished_forever(app: App, jobs: Jobs, interval: float) -> None:
@@ -164,52 +167,15 @@ async def drop_finished_forever(app: App, jobs: Jobs, interval: float) -> None:
 app.create_task(drop_finished_forever(app, jobs, 600), name="jobs.drop_finished")
 ```
 
-- `asyncio.wait` returns after `interval`, or at once when shutdown starts. It does not cancel `app.shutdown`.
-- Read `app.shutdown` once, before the loop. Each read makes a new shield, and each pending shield keeps a callback on the app's future until shutdown.
-- Never end a pass with `asyncio.sleep(interval)`. The drain then waits up to one interval, and after 5 s it cancels the loop.
-- The loop finishes its current pass, then stops at the `while` check.
-- A loop that waits on a queue or an event waits on `shutdown` too: `asyncio.wait({event_wait, shutdown}, timeout=...)`. Clear the event after the wait, so a set that comes during a pass is not lost.
-- In a handler, use `c.alive()` instead.
-- The `server.shutdown` span gets one `server.shutdown.task_cancelled` event, with `task.name`, for each task that the drain cancels (stario 5.3.2). Give the loop a `name`. A test checks that the loop stops in time:
-
-```python
-async def test_loops_stop_on_shutdown():
-    async with TestClient(bootstrap) as client:
-        pass
-    shutdown = client.tracer.find_span("server.shutdown")
-    assert shutdown is not None
-    assert not client.tracer.get_events(shutdown.id, name="server.shutdown.task_cancelled")
-```
+- `asyncio.wait` returns after `interval`, or at once when shutdown starts; it does not cancel `app.shutdown`. Read `app.shutdown` once, before the loop: each read makes a new shield.
+- Never end a pass with `asyncio.sleep(interval)`: the drain then waits up to one interval and, after 5 s, cancels the loop.
+- A loop that waits on a queue or an event waits on `shutdown` too: `asyncio.wait({event_wait, shutdown}, timeout=...)`; clear the event after the wait.
+- Give the loop a `name`. In a handler, loop on `c.alive()` instead.
 
 ## Tests
 
-```python
-# tests/conftest.py: monkeypatch.setenv("REPORT_DELAY", "0") in the client fixture
-
-
-async def test_a_job_runs_to_done(client):
-    async with client.stream("GET", REPORTS_LIVE.href(), timeout=2) as live:
-        events = live.iter_events()
-        await anext(events)
-        assert (await client.post(START_REPORT.href())).status_code == 204
-        async for event in events:
-            if "done" in event["data"]:
-                break
-    await client.drain_tasks(timeout=1)  # the timer loop never ends: a timeout
-    assert client.tracer.find_span("report.run").ok
-```
-
-The test reads events until one contains `done`. `timeout=2` covers the whole stream, so it must be longer than the delay of the job.
+A job that runs to done, and loops that stop on shutdown: `references/tests.md`.
 
 ## Jobs in SQLite
 
-A job row in SQLite outlives the process. A row stays `running` when the process stops. The schema function marks these rows when the app starts, so a restart leaves no job stuck:
-
-```python
-tx.execute(
-    "UPDATE jobs SET data = json_set(data, '$.status', 'failed', '$.result', 'interrupted')"
-    " WHERE status IN ('queued', 'running')"
-)
-```
-
-The stream then follows `db.watch` on the jobs table (skill `stario-litewriter`), and `run` writes each status with `await db.write(...)` in place of the publish.
+A job row in SQLite outlives the process; `schema` marks the rows a stop left `running`: `references/sqlite-jobs.md`.
