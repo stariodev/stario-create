@@ -149,7 +149,6 @@ def scaffold_files(
 
     w("tests/__init__.py", "")
     w("tests/conftest.py", _fill("tests/conftest.py.tmpl"))
-    w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
     w("tests/test_js.py", _fill("tests/test_js.py.tmpl"))
     w("tests/test_pages.py", template("tests/test_pages.py").read_text())
 

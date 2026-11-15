@@ -65,8 +65,7 @@ _NEW_SUMMARY = """\
   app/pages/home.py      HomePage(app_name): register, show; render(app_name); LINKS
   static/                css/style.css (plain CSS), js/datastar.js
   tests/conftest.py      fixture `client`: TestClient(bootstrap), PROJECT_DATA_DIR=tmp_path
-  tests/test_pages.py    checks every page: links, routes, ids, signals (keep it, no edit)
-  tests/test_home.py     asserts id="home" on /; change it with the home page
+  tests/test_pages.py    / answers; every page: links, routes, ids, signals (keep it, no edit)
   tests/test_js.py       each app.<name> call in a view has static/js/<name>.js{agent_note}"""
 
 

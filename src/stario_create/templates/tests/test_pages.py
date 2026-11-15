@@ -149,6 +149,8 @@ async def html_routes(client) -> list[str]:
 
 
 async def test_every_page_checks_out(client):
+    home = await client.get("/")
+    assert home.status_code < 400, f"/ answers {home.status_code}"
     queue, seen, found = ["/", *await html_routes(client)], set(), []
     while queue and len(seen) < LIMIT:
         url = queue.pop(0)
