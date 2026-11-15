@@ -1,7 +1,7 @@
 """Google sign-in: an OpenID Connect issuer at accounts.google.com."""
 
-from app.common.providers import Http
-from app.common.providers.oidc import OidcIssuer
+from app.auth.providers import Http
+from app.auth.providers.oidc import OidcIssuer
 
 GOOGLE = "https://accounts.google.com"
 

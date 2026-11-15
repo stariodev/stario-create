@@ -17,9 +17,10 @@ def _python_blocks(text: str) -> list[str]:
 
 @pytest.mark.parametrize("profile", PROFILES)
 def test_guide_fits_rule_loader_budget(profile):
-    # Rule loaders (Devin) cut always-on rules at 16 KB. The guide stays at the
-    # skill size, so each app's `## This app` notes have room to grow.
-    assert len(guide_text(profile).encode()) <= 9_000
+    # Rule loaders (Devin) cut always-on rules at 16 KB. The app guide holds the
+    # page shape that agents otherwise read from two or three skills, and still
+    # leaves the `## This app` notes (4 KB) room under that cut.
+    assert len(guide_text(profile).encode()) <= (12_000 if profile == "app" else 9_000)
 
 
 @pytest.mark.parametrize("name", skill_names())
@@ -90,12 +91,12 @@ def test_guide_sends_only_what_a_person_must_see_to_a_browser():
 
 
 def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
-    text = skill_text("stario-api")
+    text = skill_text("stario-datastar")
     for name in ["data.on(", "data.bind(", "data.indicator(", "at.get(", "sse.patch_elements("]:
         assert name in text
     assert "Datastar Pro only" in text
     assert "data.persist()" not in skill_text("stario-feature")
-    assert "stario-api" in guide_text()
+    assert "stario-datastar" in guide_text()
 
 
 def test_browser_check_owns_its_server():
@@ -160,6 +161,47 @@ def test_litewriter_skill_teaches_watch_with_a_sort():
 def test_guide_routes_each_task_to_a_skill():
     text = guide_text()
     assert "## Which skill" in text
-    assert "A static page (no command): no skill." in text
     for name in skill_names():
-        assert f"`{name}`" in text.split("## Layout")[0]
+        assert f"`{name}`" in text
+
+
+def test_api_skill_answers_what_agents_probed_for():
+    # Agents read site-packages for these when the guide did not answer them
+    # (stario-agent-bench, 2026-11).
+    text = skill_text("stario-api")
+    for name in [
+        "STARIO_PORT",
+        "ServerConfig",
+        "app.not_found(",
+        "{path...}",
+        "catch_errors(",
+        "RedirectException(",
+        "SignedCookie(",
+        "read_form(",
+        "Files(",
+        "ASSETS.href(",
+        "data={",
+        'r.headers.get("location")',
+        "db.watch(",
+        "apsw.ConstraintError",
+    ]:
+        assert name in text, name
+
+
+def test_guide_starts_an_app_in_one_command():
+    text = guide_text()
+    assert "uvx stario-create@latest new app --db" in text
+    assert "Change the scaffold's files in place" in text
+
+
+@pytest.mark.parametrize("name", skill_names())
+def test_skill_frontmatter_is_plain_yaml(name):
+    # A ": " or " #" in a plain YAML scalar breaks the frontmatter: `npx skills add`
+    # skips the skill and Claude Code does not list it.
+    head = skill_text(name).split("---")[1]
+    for line in head.strip().splitlines():
+        key, _, value = line.partition(": ")
+        assert key in ("name", "description"), line
+        assert (
+            ": " not in value and " #" not in value and not value.startswith(("'", '"', "[", "{"))
+        ), line

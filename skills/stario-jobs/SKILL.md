@@ -1,6 +1,6 @@
 ---
 name: stario-jobs
-description: Slow work in a Stario app - a report, a model call, a download, an import - as a job that a command queues and a task runs while the page shows queued, running, and done. Use when a button starts work that takes seconds, when several jobs may run at once, when the page must update by itself while the work runs, when a job must stop cleanly on shutdown or survive a restart, or when a loop runs on a timer.
+description: Slow work in a Stario app (a report, a model call, an import) as a job a command queues and a task runs, with live progress; clean shutdown; a loop on a timer.
 ---
 
 # Slow work as a job
@@ -8,7 +8,7 @@ description: Slow work in a Stario app - a report, a model call, a download, an 
 `AGENTS.md` holds the rules. Look up a name in `stario-api` only when this skill and the code do not show it. The page is a live page on a `Relay` (skill `stario-relay`): the command queues a job and replies at once. A task does the work inside its own span and publishes each status change. The `queued` row is the click feedback.
 
 ```python
-# data.py
+# app/data.py
 from dataclasses import dataclass, field
 from itertools import count
 
@@ -37,14 +37,14 @@ def list_jobs(jobs: Jobs) -> list[Job]:
 ```
 
 ```python
-# urls.py
+# app/urls.py
 REPORTS = Route("GET /reports")
 REPORTS_LIVE = Route("GET /reports/live")
 START_REPORT = Route("POST /reports")
 ```
 
 ```python
-# views.py
+# app/pages/reports.py: render
 def render(jobs: list[Job]) -> HtmlElement:
     return page(
         "Reports",
@@ -66,7 +66,7 @@ def render(jobs: list[Job]) -> HtmlElement:
 The button carries `data.indicator` because its own `data.on` sends the request.
 
 ```python
-# handlers.py
+# app/pages/reports.py: the page class
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime

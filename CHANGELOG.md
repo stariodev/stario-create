@@ -4,6 +4,75 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.14.0
+
+Measured again with stario-agent-bench. After 5.13.0 the turns that were left
+went to writing many small files: each page had four (`urls.py`, `views.py`,
+`handlers.py`, `data.py`), and Haiku wrote each with its own tool call (26 to
+40 writes against 15 for Hono). Agents also rewrote `tests/test_home.py`
+with every home page, and tidied files they had just written.
+
+### Changed
+
+- New apps have one file per concern: `app/urls.py` holds every route,
+  `app/data.py` (with `--db`) the tables, rows, and every read and write,
+  `app/layout.py` the assets, the document, and shared markup, and
+  `app/pages/<page>.py` one page: its class and its render functions.
+  `app/assets.py`, `app/common/`, and `app/features/` are gone from the
+  scaffold. An app with the older folder per page keeps its layout; the
+  guide says so.
+- `stario-create add auth` writes `app/auth/` (session, providers, tables)
+  and `app/pages/login.py`, and appends its routes to `app/urls.py`.
+  `add tailwind` replaces `app/layout.py`.
+- `tests/test_pages.py` asserts that `/` answers below 400 and reads the
+  routes from `app/urls.py` (or `app/features/*/urls.py`). A stream that
+  sends only signals passes its check. There is no `tests/test_home.py`.
+- `stario-litewriter` shows how `schema` upgrades a database that already
+  holds rows (check, `ALTER TABLE`, set the old rows in the same step, never
+  recreate). `stario-feature` shows a live count on every page (a navbar
+  badge) as its own stream of one signal.
+- `AGENTS.md`: the new layout, a page as one file with its imports, a section
+  on changing an existing app (find the page, add a route, a new field on a
+  table with rows, a new live part), the unit of `debounce=` (a bare number
+  is seconds), "write each file once", and that `just check` fixes imports.
+- `stario-api` says how to call an outside HTTP API (one `httpx` client
+  opened in `bootstrap`). Every skill shows the new paths.
+- Shorter skill descriptions (4.0 KB to 1.9 KB in all), with no `: ` in the
+  YAML value, which `npx skills add` and Claude Code reject.
+
+## 5.13.0
+
+Measured with stario-agent-bench (Conduit and the Pokédex, Claude Sonnet and
+Haiku): Stario builds cost 1.6x to 3.9x the cheapest framework, through extra
+turns. Agents scaffolded in `/tmp` and read the files back, probed
+`site-packages` for names the guide did not give, read six skills up front,
+patched small files, and wrote tests that an acceptance suite already covered.
+
+### Changed
+
+- `stario-create new <folder>` scaffolds in place: the folder may be `app`,
+  `.`, or any path, and `app_name` comes from its name (`--name` sets it).
+  `--db` adds litewriter and opens the SQLite file in `bootstrap`. Inside a
+  repo whose `AGENTS.md` above the folder is already the Stario guide, it
+  writes no second copy of the guide or the skills. It ends by printing what
+  each file holds, so an agent need not open them.
+- `AGENTS.md` shows `main.py`, the layout the scaffold writes, the rules that
+  fail at run time (attributes before children), and one whole page class
+  with its view. It asks for each feature in one step, and makes tests
+  proportional: with an end-to-end suite, that suite is the check.
+- `stario-api` is the server-side reference: serving on a host and port,
+  a catch-all route and a 404 page, redirects (`RedirectException`), errors
+  (`catch_errors`), cookies and `SignedCookie`, forms, `Assets` and `Files`,
+  litewriter, Relay, and `TestClient` with form posts (`data=`) and
+  `r.headers.get(...)`.
+- New skill `stario-datastar`: the page side (`h.*`, `data.*`, `at.*`,
+  `SSE`) that was in `stario-api`.
+- `stario-auth` adds password sign-in for a spec that requires it (scrypt,
+  the same `Session`, `require_user`), next to provider sign-in.
+- `stario-feature` shows a form error through a `_error` signal, a page that
+  watches several tables, and paging. Narrower descriptions for
+  `stario-litewriter`, `stario-relay`, and `stario-view`.
+
 ## 5.12.0
 
 ### Changed

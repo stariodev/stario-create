@@ -5,20 +5,22 @@ from stario import App, Span, serve
 from stario.cookies import SignedCookie
 from stario.http import same_origin, security_headers
 
-from app.assets import ASSETS
-from app.common.providers import Http, Provider
-from app.common.providers.github import GitHub
-from app.common.providers.google import Google
-from app.common.session import Session
+from app import data
+from app.auth import data as auth_data
+from app.auth.providers import Http, Provider
+from app.auth.providers.github import GitHub
+from app.auth.providers.google import Google
+from app.auth.session import Session
 from app.config import Config
-from app.features.home.handlers import HomePage
-from app.features.login import data as login_data
-from app.features.login.handlers import LoginPage
-from app.features.login.urls import LOGIN
+from app.layout import ASSETS
+from app.pages.home import HomePage
+from app.pages.login import LoginPage
+from app.urls import LOGIN
 
 
 def schema(tx: Tx) -> None:
-    login_data.schema(tx)
+    auth_data.schema(tx)
+    data.schema(tx)
 
 
 async def bootstrap(app: App, span: Span):

@@ -8,13 +8,13 @@ from litewriter import LiteWriter
 from stario import json
 from stario.testing import TestClient
 
-from app.common.providers import Flow, Http, LoginFailed
-from app.common.providers.google import GOOGLE, Google
-from app.common.providers.oidc import OidcIssuer
-from app.common.session import local_path
-from app.features.login.data import get_user, schema
-from app.features.login.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
+from app.auth.data import get_user, schema
+from app.auth.providers import Flow, Http, LoginFailed
+from app.auth.providers.google import GOOGLE, Google
+from app.auth.providers.oidc import OidcIssuer
+from app.auth.session import local_path
 from app.main import bootstrap
+from app.urls import LOGIN, LOGIN_CALLBACK, LOGIN_START, LOGOUT
 from tests.conftest import FakeProviders, login, start
 
 # The prefix that session.require protects in app/main.py. It has no page yet,

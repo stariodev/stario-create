@@ -1,8 +1,14 @@
-from stario import h
+from pathlib import Path
+
+from stario import Assets, h
 from stario.datastar import ModuleScript, data
 from stario.markup import HtmlElement, SafeString, baked, classes
 
-from app.assets import DATASTAR_JS, SCRIPTS, STYLE_CSS
+ASSETS = Assets(Path(__file__).resolve().parents[1] / "static", url_prefix="/static")
+STYLE_CSS = ASSETS.href("css/output.css")
+DATASTAR_JS = ASSETS.href("js/datastar.js")
+# Client behaviour lives in static/js/<name>.js — each file defines app.<name>.
+SCRIPTS: tuple[str, ...] = tuple(ASSETS.href(f"js/{name}.js") for name in ("theme",))
 
 # The one inline script: it sets the theme before the first paint.
 RESTORE_THEME = SafeString(
@@ -41,3 +47,6 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
             ),
         ),
     )
+
+
+# Markup that several pages share (a nav bar, a card, a date) goes below.

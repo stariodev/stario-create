@@ -1,6 +1,6 @@
 ---
 name: stario-view
-description: Choose what one tab of a Stario page sees - a sort, a filter, paging, or a search as you type. Use when the user asks to sort or filter a list, to page through it, for a per-person or per-tab sort that still updates live, or for a search box that filters while the user types. The view lives in the URL as a View dataclass; the search is a GET that patches one part.
+description: A sort, a filter, or a search as you type on a Stario list - the view in the URL, the stream reads the same view, a search GET that patches one part.
 ---
 
 # A view in the URL, and search as you type
@@ -9,13 +9,13 @@ description: Choose what one tab of a Stario page sees - a sort, a filter, pagin
 
 Two kinds of "what this tab sees":
 
-- **A view**: a sort, a filter, a page number. It is in the query of the URL, so a reload, a shared link, and the back button show the same thing. Each tab has its own URL, so each tab has its own sort. A `View` dataclass in `urls.py` reads and writes it.
+- **A view**: a sort, a filter, a page number. It is in the query of the URL, so a reload, a shared link, and the back button show the same thing. Each tab has its own URL, so each tab has its own sort. A `View` dataclass in `app/urls.py` reads and writes it.
 - **A private read**: a result that only this tab needs while the user types. A `GET` reads the signals and patches one part. It keeps nothing.
 
 ## A view
 
 ```python
-# urls.py
+# app/urls.py
 from dataclasses import dataclass
 
 from stario import Route
@@ -46,7 +46,7 @@ class TodosView:
 An unknown value falls back to the default, so an old link still opens.
 
 ```python
-# data.py: one fixed SQL text per sort; a filter is a parameter
+# app/data.py: one fixed SQL text per sort; a filter is a parameter
 SORTED = {
     "new": "SELECT id, title, done FROM todos WHERE done <= :most ORDER BY id DESC",
     "old": "SELECT id, title, done FROM todos WHERE done <= :most ORDER BY id",
@@ -61,7 +61,7 @@ def list_todos(db: LiteWriter, view: TodosView) -> list[Todo]:
 `ORDER BY` cannot be a parameter. Thus each sort key picks one constant SQL text. Every outside value is a `:name` parameter.
 
 ```python
-# views.py: each choice is a link to a new URL
+# app/pages/<page>.py, render: each choice is a link to a new URL
 def render(todos: list[Todo], view: TodosView) -> HtmlElement:
     return page(
         "Todos",
@@ -93,7 +93,7 @@ def render(todos: list[Todo], view: TodosView) -> HtmlElement:
 `replace` is `dataclasses.replace`. `item` is the row of skill `stario-feature`. The stream URL carries the view, so the `data.init` text is the same in every render of this tab.
 
 ```python
-# handlers.py: the page GET and the stream read the same view
+# app/pages/<page>.py, the page class: the page GET and the stream read the same view
 async def show(self, c: Context, w: Writer) -> None:
     view = TodosView.from_query(c.req.query)
     w.html(render(list_todos(self.db, view), view))
@@ -137,13 +137,13 @@ Paging is the same: `page: int = 1` in the view, validated with `isdecimal()`, a
 The result only this tab needs. It changes no state, so it needs no stream.
 
 ```python
-# urls.py
+# app/urls.py
 SEARCH = Route("GET /search")
 SEARCH_RESULTS = Route("GET /search/results")
 ```
 
 ```python
-# views.py: the page, and the part that the read replaces
+# app/pages/<page>.py, render: the page, and the part that the read replaces
 def results(matches: list[str], total: int) -> HtmlElement:
     return h.Div({"id": "results"}, h.P(f"{total} matches"), h.Ul(*[h.Li(m) for m in matches]))
 
@@ -165,7 +165,7 @@ def render(matches: list[str], total: int) -> HtmlElement:
 ```
 
 ```python
-# handlers.py
+# app/pages/<page>.py: the page class
 @dataclass(frozen=True, slots=True)
 class SearchPage:
     cities: tuple[str, ...]

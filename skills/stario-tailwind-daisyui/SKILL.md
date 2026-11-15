@@ -1,6 +1,6 @@
 ---
 name: stario-tailwind-daisyui
-description: Style a Stario app with Tailwind CSS v4 and DaisyUI through the standalone tailwindcss binary, with no Node, and a light and dark theme switch. Use when the user mentions Tailwind, DaisyUI, utility classes, themes, dark mode, or wants the app to look finished without writing CSS. The setup comes from `stario-create add tailwind`.
+description: Tailwind CSS v4 and DaisyUI for a Stario app through the standalone binary (`stario-create add tailwind`), no Node, with a light and dark theme.
 ---
 
 # Tailwind and DaisyUI without Node
@@ -18,8 +18,7 @@ The kit writes:
 | --- | --- |
 | `justfile` | `tailwind` gets the pinned binary and the DaisyUI plugin once per machine. `css` builds; `css-watch` rebuilds next to `just dev`. |
 | `frontend/src/input.css` | Tailwind scans `app/**/*.py`. DaisyUI with `light` and `dark`. `dark:` follows `data-theme`. |
-| `app/assets.py` | `STYLE_CSS` is `css/output.css`. `SCRIPTS` loads `theme.js`. |
-| `app/common/shell.py` | `data-theme` on `<html>`, kept through each morph. The theme restore before the first paint (the only inline script). A DaisyUI toast. |
+| `app/layout.py` | `STYLE_CSS` is `css/output.css`. `SCRIPTS` loads `theme.js`. `data-theme` on `<html>`, kept through each morph. The theme restore before the first paint (the only inline script). A DaisyUI toast. |
 | `static/js/theme.js` | `app.theme.toggle()`, kept in `localStorage`. |
 
 A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read it and merge its lines. Commit `static/css/output.css` after each `just css`. Yard serves the committed file.

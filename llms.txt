@@ -5,19 +5,20 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 ## Start here
 
 - [AGENTS.md](https://stario.dev/AGENTS.md): the app guide. Copy it into every Stario repo. Layout, invariants, the CQRS default, render from state, signals, code shape, tests, common mistakes.
-- [stario-create](https://github.com/stariodev/stario-create): `uvx stario-create new my-app` creates a runnable app with the guide, the skills, and a `justfile`.
+- [stario-create](https://github.com/stariodev/stario-create): `uvx stario-create new my-app --db` creates a runnable app with the guide, the skills, and a `justfile`.
 - [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the skills in one file, for tools that want more context.
 - [The Stario way](https://stario.dev/docs/explanation/the-stario-way): why Stario is shaped this way.
 
 ## Skills (optional stacks)
 
-- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): a live page in SQLite that every tab sees change; remove a page.
-- [stario-view](https://stario.dev/skills/stario-view/SKILL.md): a sort, a filter, or paging in the URL; search as you type.
+- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): a whole page to copy: SQLite table, live view, a form command, tests; paging.
+- [stario-view](https://stario.dev/skills/stario-view/SKILL.md): a sort or a filter in the URL; search as you type.
 - [stario-relay](https://stario.dev/skills/stario-relay/SKILL.md): state in memory, a message to one tab, an edit dialog.
 - [stario-jobs](https://stario.dev/skills/stario-jobs/SKILL.md): slow work as a job with its own span.
 - [stario-browser-check](https://stario.dev/skills/stario-browser-check/SKILL.md): the test for each question about HTML, and the rare browser script.
-- [stario-api](https://stario.dev/skills/stario-api/SKILL.md): every signature: `c`, `w`, `h.*`, Relay, TestClient, `data.*`, `at.*`, `SSE`.
-- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): sign-in with Google and GitHub (`add auth`), admin access, protected pages, API tokens, rows that belong to one user.
+- [stario-api](https://stario.dev/skills/stario-api/SKILL.md): every server import and signature: serving, routes, a 404 page, `c`, `w`, errors, cookies, forms, static files, litewriter, Relay, TestClient.
+- [stario-datastar](https://stario.dev/skills/stario-datastar/SKILL.md): the page side: `h.*`, `data.*`, `at.*`, signals, `SSE`.
+- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): the session, sign-in with Google and GitHub (`add auth`), password sign-in when a spec requires it, protected pages, rows of one user.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
 - [stario-client](https://stario.dev/skills/stario-client/SKILL.md): where JavaScript goes, and how Python calls `app.<name>`.
@@ -45,4 +46,4 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 ## Defaults in one paragraph
 
-A page is a resource: the path names it, and the query holds the view (sort, filter, columns). One folder per page under `app/features/<page>/` with `urls.py`, `views.py`, `handlers.py`, and `data.py` when the page owns state. `handlers.py` holds one page class: its fields are its dependencies, `register(app)` adds its routes, and each route is one method. A page whose state cannot change while it is open is one `GET`, plus private reads that patch one part. A live page is `GET /page`, `GET /page/live`, and `POST` commands that read, validate, reply, and then execute. Only the stream sends HTML; a message for one tab goes through `Relay` on `tab.<id>`. The HTTP status is the reaction of the browser; the span is the outcome of the work. SQLite tables are `id` plus `data` JSON, with virtual columns for filters and indexes. Tests run through `TestClient(bootstrap)` and read the stream with `iter_events()`.
+A page is a resource: the path names it, and the query holds the view (sort, filter, columns). Every route is in `app/urls.py`; the tables and every read and write are in `app/data.py`; each page is one file, `app/pages/<page>.py`, with one page class and its render functions. The class's fields are its dependencies, `register(app)` adds its routes, and each route is one method. A page whose state cannot change while it is open is one `GET`, plus private reads that patch one part. A live page is `GET /page`, `GET /page/live`, and `POST` commands that read, validate, reply, and then execute. Only the stream sends HTML; a message for one tab goes through `Relay` on `tab.<id>`. The HTTP status is the reaction of the browser; the span is the outcome of the work. SQLite tables are `id` plus `data` JSON, with virtual columns for filters and indexes. Tests run through `TestClient(bootstrap)` and read the stream with `iter_events()`.

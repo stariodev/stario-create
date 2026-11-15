@@ -9,10 +9,10 @@ import pytest
 from stario import json
 from stario.testing import TestClient
 
-from app.common.providers import Http
-from app.common.providers.google import GOOGLE
-from app.features.login.urls import LOGIN_CALLBACK, LOGIN_START
+from app.auth.providers import Http
+from app.auth.providers.google import GOOGLE
 from app.main import bootstrap
+from app.urls import LOGIN_CALLBACK, LOGIN_START
 
 
 class FakeProviders(Http):

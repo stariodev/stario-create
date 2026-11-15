@@ -9,6 +9,7 @@ a `hint:` line when there is one, and exit 1.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,9 +18,12 @@ from stario_create import TRACKS_STARIO, __version__
 from stario_create.kits import KITS, add_kit
 from stario_create.scaffold import (
     DEV_REQS,
+    LITEWRITER_REQ,
     STARIO_REQ,
     ScaffoldError,
+    app_name_for,
     check_name,
+    guide_above,
     notes_warning,
     scaffold_files,
     stale_files,
@@ -46,10 +50,30 @@ def _run(argv: list[str], cwd: Path) -> None:
         )
 
 
+# What `new` writes, printed after it so an agent need not open the files.
+_NEW_SUMMARY = """\
+  pyproject.toml uv.lock  stario{db_dep}; dev: ruff pyrefly pytest pytest-asyncio watchfiles
+  justfile               just dev (reload) | just serve | just check | just test -k NAME
+  app/main.py            bootstrap(app, span): same_origin + security_headers, ASSETS,{db_note}
+                         one register line per page under `# pages`; serve()
+  app/config.py          Config: a field with a default per setting, read from the env
+                         var of its name in capitals; data_dir from PROJECT_DATA_DIR
+                         (default ./data); db_path = data_dir / "app.sqlite3"
+  app/layout.py          ASSETS (static/ at /static), STYLE_CSS, DATASTAR_JS, SCRIPTS;
+                         page(title, body): the <html> document with a #toast; shared markup
+  app/urls.py            every Route, grouped by page: HOME = Route("GET /"){db_file}
+  app/pages/home.py      HomePage(app_name): register, show; render(app_name); LINKS
+  static/                css/style.css (plain CSS), js/datastar.js
+  tests/conftest.py      fixture `client`: TestClient(bootstrap), PROJECT_DATA_DIR=tmp_path
+  tests/test_pages.py    / answers; every page: links, routes, ids, signals (keep it, no edit)
+  tests/test_js.py       each app.<name> call in a view has static/js/<name>.js{agent_note}"""
+
+
 def cmd_new(args: argparse.Namespace) -> int:
     base = Path(args.dir).expanduser() if args.dir else Path.cwd()
-    dest = base / args.name
-    check_name(args.name)
+    dest = (base / args.path).resolve()
+    app_name = args.name or app_name_for(dest)
+    check_name(app_name)
     if (
         dest.exists()
         and any(dest.iterdir())
@@ -59,25 +83,41 @@ def cmd_new(args: argparse.Namespace) -> int:
         raise ScaffoldError(
             "not-empty",
             f"{dest} is not empty and has no pyproject.toml",
-            "pass --force to scaffold anyway",
+            "scaffold into a new folder (`new app`), or pass --force to write here",
         )
     dest.mkdir(parents=True, exist_ok=True)
+    above = guide_above(dest)
 
     if not (dest / "pyproject.toml").exists():
-        _run(["uv", "init", "--app", "--no-package", "--python", "3.14", str(dest)], dest)
-    if (dest / "main.py").exists():
-        (dest / "main.py").unlink()
-    # requires-python pins 3.14 for uv. A .python-version also steers pyenv's
-    # shims, and a bare `python3` then fails where pyenv has no 3.14.
-    (dest / ".python-version").unlink(missing_ok=True)
-    _run(["uv", "add", STARIO_REQ, *(["orjson>=3.13.0"] if args.orjson else [])], dest)
-    _run(["uv", "add", "--dev", *DEV_REQS], dest)
+        _run(
+            ["uv", "init", "--app", "--no-package", "--python", "3.14", "-q"],
+            dest,
+        )
+    for leftover in ("main.py", ".python-version"):
+        # requires-python pins 3.14 for uv. A .python-version also steers pyenv's
+        # shims, and a bare `python3` then fails where pyenv has no 3.14.
+        (dest / leftover).unlink(missing_ok=True)
+    deps = [STARIO_REQ, *([LITEWRITER_REQ] if args.db else [])]
+    _run(["uv", "add", "-q", *deps, *(["orjson>=3.13.0"] if args.orjson else [])], dest)
+    _run(["uv", "add", "-q", "--dev", *DEV_REQS], dest)
 
-    created = scaffold_files(dest, args.name, force=args.force, orjson=args.orjson)
+    created = scaffold_files(
+        dest,
+        app_name,
+        force=args.force,
+        orjson=args.orjson,
+        db=args.db,
+        agent_files=above is None,
+    )
 
+    verified = ""
     if not args.no_verify:
         proc = subprocess.run(
-            ["uv", "run", "pytest", "-q"], cwd=dest, capture_output=True, text=True, check=False
+            ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider"],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if proc.returncode != 0:
             tail = (proc.stdout + proc.stderr).strip().splitlines()[-10:]
@@ -86,13 +126,28 @@ def cmd_new(args: argparse.Namespace) -> int:
                 "the new app's tests failed",
                 "\n".join(tail) or f"exit {proc.returncode}",
             )
+        verified = ", tests pass"
 
-    print(f"created {dest} ({len(created)} files)")
-    print("next:")
-    print(f"  cd {dest}")
-    print("  just dev                     # http://127.0.0.1:8000, reloads on change")
-    print("  just check                   # lint, types, tests — before done")
-    print("  Read AGENTS.md; its Which skill list names the skill for each task.")
+    where = os.path.relpath(dest)
+    print(f"created {where}/ ({len(created)} files{verified}); app_name={app_name!r}; in it:")
+    agent_note = (
+        f"\n  (no AGENTS.md or skills here: {os.path.relpath(above)} is the guide)"
+        if above
+        else "\n  AGENTS.md .agents/skills/ .claude/skills/ .cursor/   the guide and skills"
+    )
+    print(
+        _NEW_SUMMARY.format(
+            db_dep=f" {LITEWRITER_REQ}" if args.db else "",
+            db_note="\n                         async with LiteWriter(config.db_path, schema=schema) as db,"
+            if args.db
+            else "",
+            db_file="\n  app/data.py            schema(tx) for the tables; the rows and every read and write"
+            if args.db
+            else "",
+            agent_note=agent_note,
+        )
+    )
+    print("next: add each page as app/pages/<page>.py and its routes in app/urls.py; just check")
     return 0
 
 
@@ -149,9 +204,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="store_true", help="print version and exit")
     sub = parser.add_subparsers(dest="command", metavar="command")
 
-    p = sub.add_parser("new", help="create a new project")
-    p.add_argument("name")
-    p.add_argument("--dir", default=None, help="parent directory (default: ./<name>)")
+    p = sub.add_parser("new", help="create a new app in a folder (`.` for this one)")
+    p.add_argument("path", help="the app folder, e.g. `app` or `.`; made if missing")
+    p.add_argument("--db", action="store_true", help="add litewriter and open SQLite in bootstrap")
+    p.add_argument("--name", default=None, help="app_name (default: from the folder name)")
+    p.add_argument("--dir", default=None, help="parent directory of path (default: .)")
     p.add_argument("--force", action="store_true", help="overwrite existing files")
     p.add_argument(
         "--orjson",

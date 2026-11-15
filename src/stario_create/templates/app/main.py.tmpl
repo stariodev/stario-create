@@ -3,9 +3,9 @@ $orjson_import
 from stario import App, Span$json_import, serve
 from stario.http import same_origin, security_headers
 
-from app.assets import ASSETS
 from app.config import Config
-from app.features.home.handlers import HomePage
+from app.layout import ASSETS
+from app.pages.home import HomePage
 
 
 async def bootstrap(app: App, span: Span):
@@ -18,4 +18,4 @@ $codec    config = Config.from_env()
 
 
 if __name__ == "__main__":
-    asyncio.run(serve(bootstrap))
+    asyncio.run(serve(bootstrap))  # listens on STARIO_HOST:STARIO_PORT, default 127.0.0.1:8000
