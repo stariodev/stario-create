@@ -37,17 +37,18 @@ output states the fix.
 
 ### Changed
 
-- `AGENTS.md` (2,984 tokens, was 3,151) no longer orders two skills read up front.
+- `AGENTS.md` (3,005 tokens, was 3,151) no longer orders two skills read up front.
   It starts with the loop: write every file in one message and leave imports to the
   check, the check without `just`, the acceptance suite as the check, `request`
-  instead of a server, `kill $!` and never `pkill -f`, no `timeout` wrapper. It has
+  instead of a server, `kill $!` and never `pkill -f`, no `timeout` wrapper, and
+  "load the skill of a row before you write code for it". It has
   the exact imports, a live page as whole files with paging, commands in the order
   validate, write, reply, a table of names, `$PORT`, and a spec variable as a
   `Config` field. The test how-to moved to `stario-feature` and `stario-api`.
 - The kit part of `AGENTS.md` sits between `<!-- BEGIN stario-create -->` and
   `<!-- END stario-create -->`; `sync` replaces only that part.
 - Skill descriptions name what the skill covers, then when to use it, then what
-  it is not for. Always-on text (the guide and the descriptions) is 3,591 tokens,
+  it is not for. Always-on text (the guide and the descriptions) is 3,612 tokens,
   was 3,678. Each `SKILL.md` holds the common path; rare depth moved to
   `references/`. The `SKILL.md` bodies total 13.4k tokens, was 20.3k; the
   references hold 4.2k more.

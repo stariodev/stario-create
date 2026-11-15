@@ -180,6 +180,8 @@ An app keeps its layout (an older one has `app/features/<page>/`). `grep -rn 'Ro
 
 ## Skills
 
+When the task matches a row, load that skill before you write code for it.
+
 | The task needs | Skill |
 | --- | --- |
 | Sign-up and sign-in (password, Google, GitHub), protected pages, rows per user | `stario-auth` |
