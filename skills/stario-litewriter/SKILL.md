@@ -1,6 +1,6 @@
 ---
 name: stario-litewriter
-description: Change a SQLite table that already holds rows: a new field, a virtual column and index, dropping a column, push and submit, how watch wakes.
+description: Change a SQLite table that already holds rows - a new field, a virtual column and index, dropping a column, push and submit, how watch wakes.
 ---
 
 # SQLite with litewriter

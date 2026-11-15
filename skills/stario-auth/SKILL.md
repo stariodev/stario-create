@@ -1,6 +1,6 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app: the session cookie, password sign-in, Google and GitHub sign-in (`stario-create add auth`), protected pages, per-user rows, admin pages, API tokens.
+description: Accounts in a Stario app - the session cookie, password sign-in, Google and GitHub sign-in (`stario-create add auth`), protected pages, per-user rows, admin pages, API tokens.
 ---
 
 # Accounts

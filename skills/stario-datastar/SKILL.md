@@ -1,6 +1,6 @@
 ---
 name: stario-datastar
-description: The Stario page side, every signature: h.* tags, classes, data.* attributes, at.* actions, signals, read_signals, SSE patch_elements, patch_signals, navigate. Read with stario-api before writing views.
+description: The Stario page side, every signature - h.* tags, classes, data.* attributes, at.* actions, signals, read_signals, SSE patch_elements, patch_signals, navigate. Read with stario-api before writing views.
 ---
 
 # The page side: h, data, at, SSE

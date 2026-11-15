@@ -1,6 +1,6 @@
 ---
 name: stario-browser-check
-description: Load before you open a browser, screenshot, or Playwright on a Stario app: the test that answers each question without a browser, and the two cases where a browser is right.
+description: Load before you open a browser, screenshot, or Playwright on a Stario app - the test that answers each question without a browser, and the two cases where a browser is right.
 ---
 
 # A browser is the last check

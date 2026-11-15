@@ -1,6 +1,6 @@
 ---
 name: stario-view
-description: A sort, a filter, or a search as you type on a Stario list: the view in the URL, the stream reads the same view, a search GET that patches one part.
+description: A sort, a filter, or a search as you type on a Stario list - the view in the URL, the stream reads the same view, a search GET that patches one part.
 ---
 
 # A view in the URL, and search as you type

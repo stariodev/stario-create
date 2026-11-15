@@ -1,6 +1,6 @@
 ---
 name: stario-feature
-description: A whole Stario page to copy: its SQLite table, reads and writes, live view, form command with an error, tests; navigate after create; paging. Use to add a page that keeps data.
+description: A whole Stario page to copy - its SQLite table, reads and writes, live view, form command with an error, tests; navigate after create; paging. Use to add a page that keeps data.
 ---
 
 # A whole page

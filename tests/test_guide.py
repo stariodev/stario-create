@@ -192,3 +192,14 @@ def test_guide_starts_an_app_in_one_command():
     text = guide_text()
     assert "uvx stario-create@latest new app --db" in text
     assert "Change the scaffold's files in place" in text
+
+
+@pytest.mark.parametrize("name", skill_names())
+def test_skill_frontmatter_is_plain_yaml(name):
+    # A ": " or " #" in a plain YAML scalar breaks the frontmatter: `npx skills add`
+    # skips the skill and Claude Code does not list it.
+    head = skill_text(name).split("---")[1]
+    for line in head.strip().splitlines():
+        key, _, value = line.partition(": ")
+        assert key in ("name", "description"), line
+        assert ": " not in value and " #" not in value and not value.startswith(("'", '"', "[", "{")), line
