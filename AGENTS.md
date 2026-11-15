@@ -140,7 +140,7 @@ The page class's fields are its dependencies. A read or a write is a function in
 
 ## Write in few steps
 
-Plan the routes, tables, and shared markup first. Then write `app/urls.py`, `app/data.py`, `app/layout.py`, and the pages in one or two steps: one command (a chain of heredocs, or several writes in one message) can create ten files. Change the scaffold's files in place; do not delete and rewrite them. Write each file once: do not reopen, tidy, rename, or reword a file you just wrote. Fix only what `just check`, the tests, or the acceptance suite report. A wrong name costs a rewrite: look it up in the skills before you write it.
+Plan the routes, tables, and shared markup. Then write `app/urls.py`, `app/data.py`, `app/layout.py`, and the pages in one or two steps: one command (a chain of heredocs, or several writes in one message) can create ten files. Change the scaffold's files in place; do not delete and rewrite them. Write each file once: do not reopen, tidy, rename, or reword a file you just wrote. Fix only what `just check`, the tests, or the acceptance suite report (`just check` sorts and drops imports itself). No `__all__`. A wrong name costs a rewrite: look it up in the skills before you write it.
 
 ## Change an existing app
 
