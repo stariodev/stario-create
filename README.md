@@ -19,7 +19,7 @@ just check   # lint, format, types, tests — run before done
 `new` gives you a tested, runnable app:
 
 - A uv project on Python 3.14 with `stario>=5.4,<6` and the dev tools.
-- The feature-folder layout with one static `home` page.
+- One file per concern: `app/urls.py` (every route), `app/data.py` (the tables and SQL, with `--db`), `app/layout.py` (the document and shared markup), and `app/pages/home.py`, one static page.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
 - The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
