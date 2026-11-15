@@ -20,3 +20,8 @@ T11 (accounts) reports an `auth` block and T12 (Tailwind, theme switch) a `style
 old-style factories, and `layer_classes` lists service, command, or result classes: the drift the guide
 forbids. `view_from_query` (T8) and `tab_channel` show whether the view is in the URL and whether a
 command answers its own tab through the stream.
+
+These evals predate the one-file-per-page layout of 5.14 (`app/pages/<page>.py`):
+`check.py` and the fixtures still read `app/features/<page>/`. The stario-agent-bench
+screen (Haiku, fixed tasks, paired against a stored baseline) replaces them for guide
+changes; update the rubric before you run them again.

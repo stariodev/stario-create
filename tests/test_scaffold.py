@@ -42,7 +42,7 @@ def test_scaffold_files_compile(tmp_path: Path):
     assert "app/main.py" in {str(Path(p).relative_to(tmp_path)) for p in created}
     assert _compile_dir(tmp_path) == []
     assert (tmp_path / "AGENTS.md").read_text() == guide_text()
-    assert not (tmp_path / "CLAUDE.md").exists()
+    assert (tmp_path / "CLAUDE.md").read_text() == "@AGENTS.md\n"
     assert (tmp_path / "static/js/datastar.js").exists()
     gitignore = (tmp_path / ".gitignore").read_text().splitlines()
     assert "*.sqlite3*" in gitignore
@@ -285,8 +285,8 @@ def test_cli_sync_warns_about_long_app_notes(tmp_path: Path):
 def test_cli_sync_check_detects_stale_guide(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     guide = tmp_path / "AGENTS.md"
-    head, _, tail = guide.read_text().partition("\n## This app")
-    guide.write_text(head + "\nstale line\n" + "\n## This app" + tail)
+    head, _, tail = guide.read_text().partition("\n<!-- END stario-create -->")
+    guide.write_text(head + "\nstale line\n" + "\n<!-- END stario-create -->" + tail)
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "AGENTS.md" in out.stdout

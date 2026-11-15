@@ -1,49 +1,35 @@
 ---
 name: stario-litewriter
-description: Change a SQLite table that already holds rows - upgrade a filled database at start, a new column or field, a virtual column and index, dropping a column, push and submit, how watch wakes.
+description: Change a SQLite table that already holds rows - upgrade at start, a new column with its old rows filled, indexes, unique values, JSON columns, how watch wakes. Use when the schema of a filled database changes or a watch does not repaint.
 ---
 
 # SQLite with litewriter
 
-litewriter is the SQLite store for a Stario app. One SQLite file. One writer thread. Reads from any thread. `watch` wakes a stream after a commit changes the rows it reads.
-
-```bash
-uv add "litewriter>=0.3.2,<0.4"
-```
-
-## API at a glance
-
-Verified against litewriter 0.3. Do not read site-packages.
+One SQLite file, one writer thread, reads from any thread. `watch` wakes a stream after a commit changes the rows it reads. Verified against litewriter 0.3 (`uv add "litewriter>=0.3.3,<0.4"`, or `new --db`).
 
 ```text
-async with LiteWriter(path, schema=schema, claim=30) as db:
-# one LiteWriter per file: claims, runs schema, serves, drains, closes
-
-rows = await db.write(fn)        # fn(tx) on the writer thread; returns its value
-db.push(fn)                      # fire and forget; errors go to on_error
-db.submit(fn).result()           # the same write from a plain thread
-
-db.query(sql, **params)          # rows, on any thread
-db.one(sql, **params)            # one row or None; db.value -> a scalar, raises on none
-await db.aquery(sql)             # async forms: aquery, aone, avalue (worker thread)
-tx.query  tx.one  tx.value       # the same three inside a write fn
-
-async with db.watch(query, into, **params) as rows:  # async iterator; one wake
-    async for rows in rows:                          # per touching commit
-
-apsw.ConstraintError             # a taken unique value; catch it in the command
-LiteError                        # base of QueryError, StateError, ClaimBusy
+async with LiteWriter(config.db_path, schema=schema, claim=30) as db:   # in bootstrap
+db.query(sql, Row, **params)    # list of Row(*columns); without Row, tuples
+db.one(sql, Row, **params)      # Row or None
+db.value(sql, **params)         # the first column of the first row; raises when there is none
+await db.write(fn, *args)       # fn(tx, *args) in one transaction; returns fn's value
+db.push(fn, *args)              # fire and forget; a failure goes to the litewriter logger
+db.submit(fn, *args).result()   # the same write from a plain thread (on the loop it raises)
+await db.aquery(sql, Row)       # aquery, aone, avalue: on a worker thread
+async with db.watch(sql, Row, **params) as rows:   # the rows now, then after each change
+    async for items in c.alive(rows): ...
+tx.execute(sql, **params)  tx.query  tx.one  tx.value  tx.last_insert_rowid()
+apsw.ConstraintError            # a taken unique value; LiteError is the base of the rest
 ```
 
-## Open the file in bootstrap
-
-`async with LiteWriter(config.db_path, schema=schema, claim=30) as db:` in `bootstrap` (the scaffold's `app/main.py` with `--db`). `config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. It claims the file, runs `schema` from `app/data.py` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. Pass `db` to each page class. No wrapper goes around it.
+`claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. On dev reload, run the watcher so the app is its direct child (`just dev`); a `ClaimBusy` in dev is an orphan: `lsof <db>.sqlite3-claim`, then kill that PID.
 
 ## Upgrade a table that holds rows
 
-`schema` runs at every start, on a file that the last version of the app filled. Each change checks first, so the next start changes nothing. A plain table gets a new column like this:
+`schema` runs at every start, on a file the last version of the app filled. Each change checks first, so the next start changes nothing:
 
 ```python
+# app/data.py
 def schema(tx: Tx) -> None:
     tx.execute(
         "CREATE TABLE IF NOT EXISTS articles ("
@@ -54,118 +40,33 @@ def schema(tx: Tx) -> None:
         tx.execute("ALTER TABLE articles ADD COLUMN published TEXT")
         tx.execute("UPDATE articles SET published = created")  # the old rows: published then
     tx.execute("CREATE INDEX IF NOT EXISTS articles_published ON articles(published)")
-    tx.execute("CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY, data TEXT)")
+    tx.execute("CREATE UNIQUE INDEX IF NOT EXISTS articles_title ON articles(lower(title))")
 ```
 
 - Set the old rows in the same step as the `ALTER`, and only there: a later start must not touch them. A `NOT NULL` column needs a `DEFAULT`.
-- Never drop, rename, or recreate a table that holds rows. A column of another type is a new column, filled from the old one.
-- A test opens a file that the old `schema` made, with rows, starts the app on it twice, and checks the rows.
-
-## Tables: `id` plus `data`
-
-A table holds a key and one JSON document. A field that a query filters, sorts, joins, or keeps unique becomes a virtual column, computed from `data`, with an index. A real column is for a key that the table is about: `id`, `user_id`, `room_id`.
-
-```python
-COLUMNS = {
-    "title": "TEXT AS (data->>'title')",
-    "done": "INTEGER AS (data->>'done')",
-}
-
-
-def schema(tx: Tx) -> None:
-    tx.execute(
-        "CREATE TABLE IF NOT EXISTS todos ("
-        " id INTEGER PRIMARY KEY, data TEXT NOT NULL CHECK (json_valid(data)))"
-    )
-    have = {row[0] for row in tx.query("SELECT name FROM pragma_table_xinfo('todos')")}
-    for name, column in COLUMNS.items():
-        if name not in have:
-            tx.execute(f"ALTER TABLE todos ADD COLUMN {name} {column} VIRTUAL")
-    tx.execute("CREATE INDEX IF NOT EXISTS todos_done ON todos(done)")
-    tx.execute("CREATE UNIQUE INDEX IF NOT EXISTS todos_title ON todos(lower(title))")
-```
-
-Why this shape:
-
-- A new field needs no migration. The code writes it into `data`, and old rows read it as `NULL`.
-- A new filter or sort is one entry in `COLUMNS` and one index. SQLite computes a virtual column from `data`, so no row is rewritten.
-- A field that no query uses again: remove it from `COLUMNS`, then drop its index and its column once, in `schema`:
-
-```python
-if "done" in have:
-    tx.execute("DROP INDEX IF EXISTS todos_done")
-    tx.execute("ALTER TABLE todos DROP COLUMN done")
-```
-
-- `pragma_table_xinfo` lists virtual columns. `pragma_table_info` does not.
-- `->>` returns SQL values: a JSON `true` reads as `1`. Type the dataclass field as `int`.
-
-Write a document with `stario.json.dumps`. Change one field with `json_set`:
-
-```python
-from stario.json import dumps
-
-
-def add_todo(tx: Tx, title: str) -> int:
-    data = dumps({"title": title, "done": False})
-    return tx.value("INSERT INTO todos (data) VALUES (:data) RETURNING id", data=data)
-
-
-def set_title(tx: Tx, todo_id: int, title: str) -> None:
-    tx.execute(
-        "UPDATE todos SET data = json_set(data, '$.title', :title) WHERE id = :id",
-        id=todo_id,
-        title=title,
-    )
-```
-
-A JSON literal goes through `json(...)` as a direct argument: `json_set(data, '$.done', json('true'))`.
-
-## Reads
-
-`db.query(sql, Row, **params)`, `db.one`, `db.value` (signatures: `stario-api`) run on the loop thread and do not queue behind the writer. Every outside value is a `:name` parameter. An f-string may paste only a constant of the same file.
+- Never drop, rename, or recreate a table that holds rows. A column of another type is a new column, filled from the old one. A column no query uses: `DROP INDEX`, then `ALTER TABLE ... DROP COLUMN`, once, behind the same check.
+- `pragma_table_xinfo` lists virtual columns too; `pragma_table_info` does not.
+- A test writes a file with the old `schema` and rows, starts the app on it twice, and checks the rows.
+- A table of `id` plus one JSON document, with virtual columns for the fields a query uses: `references/json-tables.md`.
 
 ## Writes
 
-A write is a plain `def` whose first argument is `tx`, in `app/data.py`. The writer runs it in one transaction and commits in a batch. You do not commit. A command reads, validates, replies, and then writes:
+A write is a plain `def` whose first argument is `tx`, in `app/data.py`. The writer runs it in one transaction, in its own savepoint, and commits in a batch; you do not commit.
 
-- `await db.write(fn, ...)` is the default. The browser has its answer already, so the wait (up to 1/60 s) costs it nothing. The handler gets the result or the exception, and a failure reaches the request span.
-- `db.push(fn, ...)` returns before the commit, so a read soon after it can miss the row. A failure goes to the `litewriter` logger. Push only a counter or a last-seen stamp.
-- On a plain thread: `db.submit(fn, ...).result()`. On the loop it raises `StateError`.
-
-Rules for a write function:
-
-- It holds the whole batch. No network, no sleep, no password hash inside it.
+- It holds the whole batch: no network, no sleep, no password hash. Related changes go in one function.
 - Read inside it with `tx.query`, `tx.one`, `tx.value`, never `db.query`. Do not keep `tx`.
-- Each write runs in its own savepoint. When it raises, only that write is undone.
-- Related changes go in one write function.
-- A taken unique value raises `apsw.ConstraintError`. A command catches it and sends the message to its tab.
+- A command validates, awaits the write (up to 1/60 s), then replies, so a taken unique value (`apsw.ConstraintError`) goes back in the reply as `_error`.
+- `db.push` returns before the commit, so a read soon after can miss the row: push only a counter or a last-seen stamp.
 
 ## The stream: `watch`
 
-`watch` is the default source for a live page whose state is rows. The commands only write; nothing publishes.
-
-```python
-async def live(self, c: Context, w: Writer) -> None:
-    view = TodosView.from_query(c.req.query)
-    sse = SSE(w)
-    most = 0 if view.hide_done else 1
-    async with self.db.watch(SORTED[view.sort], Todo, most=most) as rows:
-        async for todos in c.alive(rows):
-            sse.patch_elements(render(todos, view))
-```
-
-- The first iteration gives the rows now. Each later one comes after a commit that writes a table and column that the query reads.
-- The watch wakes only for columns that its query reads. A new field that the query does not select repaints nothing: add it to the query.
-- Equal rows after a commit do not wake. A slow stream gets the newest rows, not a backlog.
-- Values are parameters: `db.watch(SQL, Todo, most=0)`. `ORDER BY` and column names cannot be parameters. Keep one fixed SQL text per sort key and pick it from the view: `SORTED = {"new": "... ORDER BY id DESC", "title": "... ORDER BY lower(title)"}` (skill `stario-view`).
-- Only commits through this `LiteWriter` wake a watch. A write from another process does not.
-
-**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes (skill `stario-relay`).
+- The first iteration gives the rows now; each later one comes after a commit that writes a table and a column that the query reads. Equal rows do not wake. A slow stream gets the newest rows, not a backlog.
+- A new field that the query does not select repaints nothing: add it to the query.
+- Values are parameters: `db.watch(SQL, Todo, most=0)`. `ORDER BY` and column names cannot be parameters: keep one fixed SQL text per sort key (skill `stario-view`).
+- Only commits through this `LiteWriter` wake a watch; a write from another process does not.
+- Rows plus a message to one tab: the stream also subscribes to a `Relay` (skill `stario-relay`).
 
 ## Rules
 
-- One `LiteWriter` per file per process. The claim is an `flock`: a `ClaimBusy` means the holder is still alive.
-- On dev reload the old process must die before the new one claims. Run the watcher so the app is its direct child: `uv run watchfiles 'python -m app.main' app/ static/`. A `ClaimBusy` in dev means an orphan: find it with `lsof <db>.sqlite3-claim` and kill it.
-- The scaffold's `tests/conftest.py` points `PROJECT_DATA_DIR` at `tmp_path`, so each test gets its own file.
-- `IF NOT EXISTS` on every `CREATE`. The schema function runs again on every start.
+- One `LiteWriter` per file per process. `IF NOT EXISTS` on every `CREATE`.
+- `tests/conftest.py` points `PROJECT_DATA_DIR` at `tmp_path`, so each test gets its own file.

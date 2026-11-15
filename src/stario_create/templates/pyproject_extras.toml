@@ -3,11 +3,12 @@
 target-version = "py314"
 line-length = 100
 src = ["app", "tests"]
-extend-exclude = [".agents", ".claude", ".cursor"]
+extend-exclude = [".agents", ".claude", ".cursor", "tests/_pagecheck.py", "tests/_lint.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["E501"]  # ruff format owns the line length
+# E501: ruff format owns the line length. B905: zip() needs no strict= in a web app.
+ignore = ["E501", "B905"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

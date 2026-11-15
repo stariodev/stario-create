@@ -1,6 +1,6 @@
 ---
 name: stario-browser-check
-description: Load before you open a browser, screenshot, or Playwright on a Stario app - the test that answers each question without a browser, and the two cases where a browser is right.
+description: Load before a browser, a screenshot, Playwright, or computer use on a Stario app - the test that answers each question without a browser, and the two cases where a browser is right.
 ---
 
 # A browser is the last check
@@ -26,7 +26,7 @@ An app from before stario-create 5.7 adds the page check with `uvx stario-create
 
 ## When the user says that it does not work
 
-1. `curl -s localhost:8000/todos` and `curl -sN localhost:8000/todos/live`, on the server of the user. Read the HTML.
+1. `curl -s localhost:8000/todos` and `curl -sN localhost:8000/todos/live` on the server of the user, or `uvx stario-create@latest request GET /todos` with no server. Read the HTML.
 2. Write a test that fails the way the user describes. Fix the code until it passes.
 3. Only when 1 and 2 show the right HTML and the page is still wrong, use the browser check.
 
