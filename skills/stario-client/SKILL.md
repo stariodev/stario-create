@@ -5,7 +5,7 @@ description: JavaScript in a Stario app - where it goes and how Python calls it.
 
 # Client behaviour
 
-Every `data.*` and `at.*` signature is in skill `stario-api`.
+Every `data.*` and `at.*` signature is in skill `stario-datastar`.
 
 The server renders the state. JavaScript is for what HTML and Datastar cannot express. It lives in `static/js/<name>.js` and Python calls it from Datastar attributes. It never lives in a Python string.
 

@@ -127,7 +127,7 @@ class ReportsPage:
 ReportsPage(Jobs(), relay, config.report_delay).register(app)
 ```
 
-`report_delay` is a `Config` field: `float(os.environ.get("REPORT_DELAY", "5"))`. A test sets it to `0`.
+`report_delay: float = 5.0` is a `Config` field; `from_env` reads `REPORT_DELAY`. A test sets it to `0`.
 
 - `c.span.step("report.run")` is a child of the request span. The task enters it with `with span:`, so the job has its own duration, events, and error in the trace.
 - `c.app.create_task`, never bare `asyncio.create_task`. Stario tracks the task and waits for it on shutdown.
@@ -177,6 +177,7 @@ async def test_loops_stop_on_shutdown():
     async with TestClient(bootstrap) as client:
         pass
     shutdown = client.tracer.find_span("server.shutdown")
+    assert shutdown is not None
     assert not client.tracer.get_events(shutdown.id, name="server.shutdown.task_cancelled")
 ```
 
@@ -194,7 +195,7 @@ async def test_a_job_runs_to_done(client):
         async for event in events:
             if "done" in event["data"]:
                 break
-    await client.drain_tasks()
+    await client.drain_tasks(timeout=1)  # the timer loop never ends: a timeout
     assert client.tracer.find_span("report.run").ok
 ```
 

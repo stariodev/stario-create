@@ -42,7 +42,7 @@ tests/test_<page>.py  tests/conftest.py has `client`; keep test_pages.py and tes
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.json`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path; a GET route answers HEAD too. `ROUTE.href(room_id, query={...})` builds the URL. No `url_for`.
 - `c.match.params` values are strings: check, then convert. `c.req.query.get("page", "1")`.
-- In `h.*`, attributes come first, children after: `h.A({"href": url}, classes("btn", {"on": on}), data.show("$x"), "text")`. A dict, `classes(...)`, and each `data.*` are attributes; `classes` never goes inside the dict. A dict after a child raises "HTML attributes must be passed before children" when the page renders, not at import.
+- In `h.*`, attributes come first, children after: `h.A({"href": url}, classes("btn", {"on": on}), data.show("$x"), "text")`. A dict, `classes(...)`, and each `data.*` are attributes; `classes` never goes inside the dict. A dict after a child raises "HTML attributes must be passed before children" when the `h.*` call runs.
 - A bare number in `debounce=`, `delay=`, or `throttle=` is seconds: write `debounce="300ms"`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
 - No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
@@ -81,7 +81,7 @@ from stario import App, Context, Writer, h
 from stario.datastar import SSE, at, data, read_signals
 from stario.markup import HtmlElement
 
-from app.data import ALL_TODOS, Todo, add_todo, list_todos
+from app.data import ITEMS, Todo, add_todo, list_todos
 from app.layout import page
 from app.urls import ADD_TODO, TODOS, TODOS_LIVE
 
@@ -100,7 +100,7 @@ class TodosPage:
 
     async def live(self, c: Context, w: Writer) -> None:
         sse = SSE(w)
-        async with self.db.watch(ALL_TODOS, Todo) as rows:
+        async with self.db.watch(ITEMS, Todo) as rows:
             async for todos in c.alive(rows):
                 sse.patch_elements(render(todos))
 
@@ -140,7 +140,7 @@ The page class's fields are its dependencies. A read or a write is a function in
 
 ## Write in few steps
 
-Plan the routes, tables, and shared markup. Then write `app/urls.py`, `app/data.py`, `app/layout.py`, and the pages in one or two steps: one command (a chain of heredocs, or several writes in one message) can create ten files. Change the scaffold's files in place; do not delete and rewrite them. Write each file once: do not reopen, tidy, rename, or reword a file you just wrote. Fix only what `just check`, the tests, or the acceptance suite report (`just check` sorts and drops imports itself). No `__all__`. A wrong name costs a rewrite: look it up in the skills before you write it.
+Plan the routes, tables, and shared markup. Then write `app/urls.py`, `app/data.py`, `app/layout.py`, and the pages in one or two steps: one command (a chain of heredocs, or several writes in one message) can create ten files. Change the scaffold's files in place; do not delete and rewrite them. Write each file once: do not reopen, tidy, rename, or reword a file you just wrote. Fix only what `just check`, the tests, or the acceptance suite report (`just check` sorts and drops imports, but does not move one below code). No `__all__`. A wrong name costs a rewrite: look it up in the skills before you write it.
 
 ## Change an existing app
 

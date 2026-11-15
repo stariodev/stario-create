@@ -38,8 +38,7 @@ class Kit:
 KITS: dict[str, Kit] = {
     "auth": Kit(
         help="sign-in with Google and GitHub through OAuth; a session cookie; tests",
-        # SignedCookie is new in stario 5.4.0.
-        deps=("stario>=5.4.0,<6", "litewriter>=0.3.2,<0.4"),
+        deps=("stario>=5.8.0,<6", "litewriter>=0.3.3,<0.4"),
         create_only=("app/data.py",),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',

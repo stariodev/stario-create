@@ -18,7 +18,7 @@ from string import Template
 
 from stario_create.data import guide_text, profile_skills, resource, skill_names, template
 
-STARIO_REQ = "stario>=5.4.0,<6"
+STARIO_REQ = "stario>=5.8.0,<6"  # the skills are verified against 5.8
 LITEWRITER_REQ = "litewriter>=0.3.3,<0.4"
 DEV_REQS = ["ruff", "pyrefly", "pytest", "pytest-asyncio", "watchfiles"]
 

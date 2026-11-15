@@ -8,7 +8,7 @@ description: Change a SQLite table that already holds rows - upgrade a filled da
 litewriter is the SQLite store for a Stario app. One SQLite file. One writer thread. Reads from any thread. `watch` wakes a stream after a commit changes the rows it reads.
 
 ```bash
-uv add "litewriter>=0.3.2,<0.4"
+uv add "litewriter>=0.3.3,<0.4"
 ```
 
 ## API at a glance
@@ -23,13 +23,13 @@ rows = await db.write(fn)        # fn(tx) on the writer thread; returns its valu
 db.push(fn)                      # fire and forget; errors go to on_error
 db.submit(fn).result()           # the same write from a plain thread
 
-db.query(sql, **params)          # rows, on any thread
+db.query(sql, Row, **params)     # list of Row, on any thread
 db.one(sql, **params)            # one row or None; db.value -> a scalar, raises on none
 await db.aquery(sql)             # async forms: aquery, aone, avalue (worker thread)
 tx.query  tx.one  tx.value       # the same three inside a write fn
 
-async with db.watch(query, into, **params) as rows:  # async iterator; one wake
-    async for rows in rows:                          # per touching commit
+async with db.watch(query, Row, **params) as rows:   # first rows now, then one wake
+    async for items in c.alive(rows):                # per touching commit
 
 apsw.ConstraintError             # a taken unique value; catch it in the command
 LiteError                        # base of QueryError, StateError, ClaimBusy

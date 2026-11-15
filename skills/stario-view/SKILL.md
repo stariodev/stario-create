@@ -15,7 +15,7 @@ Two kinds of "what this tab sees":
 ## A view
 
 ```python
-# app/urls.py
+# app/urls.py (the two imports go at the top of the file, above the routes)
 from dataclasses import dataclass
 
 from stario import Route

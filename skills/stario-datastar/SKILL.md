@@ -18,7 +18,7 @@ from stario.markup import HtmlElement, SafeString, baked, render
 
 Every tag is `h.` plus the tag name with a capital letter: `h.Div`, `h.Textarea`, `h.Dialog`, `h.HtmlDocument` (the `<html>` with its doctype).
 
-- Attributes first, children after: `h.A({"href": HOME.href()}, data.show("$x"), "Home")`. A dict and each `data.*` result is an attribute. A dict after a child raises "HTML attributes must be passed before children" when the page renders.
+- Attributes first, children after: `h.A({"href": HOME.href()}, data.show("$x"), "Home")`. A dict and each `data.*` result is an attribute. A dict after a child raises "HTML attributes must be passed before children" when the `h.*` call runs.
 - `True` writes a bare attribute. `None` or `False` leaves it out.
 - `classes("btn", {"active": is_on})` is an attribute of its own, next to the dict: `h.Li(classes("tag", {"on": on}), {"id": x}, text)`. Inside a dict (`{"class": classes(...)}`) pyrefly refuses it.
 
@@ -74,7 +74,7 @@ data.ignore_morph()                      # server patches skip this subtree
 data.ignore(self_only=False)             # Datastar skips this subtree
 ```
 
-A time is `200`, `0.2`, or `"200ms"`. `include` and `exclude` take a regex or a list of names.
+A time is `"200ms"`, `0.2` (a float: seconds, rendered `200ms`), or `2` (an int: whole seconds). A bare `200` is 200 seconds. `include` and `exclude` take a regex or a list of names.
 
 Datastar Pro only, so they do nothing with the free `datastar.js`: `persist`, `query_string`, `replace_url`, `scroll_into_view`, `match_media`, `on_resize`, `on_raf`, `animate`, `custom_validity`, and the actions `clipboard`, `intl`, `fit`.
 

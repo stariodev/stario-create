@@ -9,7 +9,7 @@ Verified against stario 5.8 and litewriter 0.3. Do not read `site-packages`: pyr
 
 ```python
 from stario import App, Assets, Context, Files, RedirectException, Relay, Route, Span, Writer, serve
-from stario import ServerConfig, classes, h  # ServerConfig is in `stario`, not `stario.http`
+from stario import ServerConfig, classes, h  # ServerConfig: `stario`, not `stario.http`
 from stario.http import catch_errors, same_origin, security_headers
 from stario.cookies import SignedCookie, delete_cookie, set_cookie
 from stario.forms import read_form
@@ -23,7 +23,7 @@ import apsw  # apsw.ConstraintError: a UNIQUE or CHECK failed
 
 ## Serve
 
-`asyncio.run(serve(bootstrap))` reads `STARIO_HOST` and `STARIO_PORT` (default `127.0.0.1:8000`). A platform that gives `$PORT`: start with `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. In code instead: `serve(bootstrap, config=ServerConfig(host=..., port=...))`; then no `STARIO_*` variable is read. A setting of the app is a field of `Config` with a default; `from_env` reads `FIELD_NAME` (`db_path` from `DB_PATH`, cast to the type of the default).
+`asyncio.run(serve(bootstrap))` reads `STARIO_HOST` and `STARIO_PORT` (default `127.0.0.1:8000`). A platform that gives `$PORT`: start with `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. In code instead: `serve(bootstrap, config=ServerConfig(host=..., port=...))`; then no `STARIO_*` variable is read. A setting is a `Config` field with a default; `from_env` reads its name in capitals (`app_name` from `APP_NAME`). `db_path` is a property, not read: a spec's `DATABASE_PATH` is a field `database_path: Path = Path("data/app.sqlite3")`.
 
 ## App and Route
 
@@ -167,7 +167,7 @@ async with TestClient(bootstrap, request_timeout=5) as client:   # the `client` 
     async with client.stream("GET", LIVE.href(), timeout=2) as live:
         events = live.iter_events()            # dicts with "event" and "data"
         first = (await anext(events))["data"]
-    await client.drain_tasks()                 # wait for create_task work
+    await client.drain_tasks(timeout=1)  # waits for every task, a forever loop too
 ```
 
 The client keeps cookies in `client.cookies` (a dict): `client.cookies.clear()` signs out, and saving and restoring it switches users. Buffered calls follow redirects. A `navigate` answer contains `window.location`. Read the first stream event before the command, so the subscription is up.
