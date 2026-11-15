@@ -202,4 +202,6 @@ def test_skill_frontmatter_is_plain_yaml(name):
     for line in head.strip().splitlines():
         key, _, value = line.partition(": ")
         assert key in ("name", "description"), line
-        assert ": " not in value and " #" not in value and not value.startswith(("'", '"', "[", "{")), line
+        assert (
+            ": " not in value and " #" not in value and not value.startswith(("'", '"', "[", "{"))
+        ), line

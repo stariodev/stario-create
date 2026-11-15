@@ -162,13 +162,7 @@ def item(t: Todo) -> HtmlElement:
     )
 ```
 
-`add` replies with `patch_signals` (the error, or a cleared input), then awaits the write. The commit wakes the watch, and every open tab repaints. A page that reads several tables watches one small query that changes with them, and reads the rest in the loop:
-
-```python
-async with self.db.watch(VERSION, article_id=article.id) as versions:
-    async for _ in c.alive(versions):
-        sse.patch_elements(render(get_article(self.db, article.id), viewer))
-```
+`add` replies with `patch_signals` (the error, or a cleared input), then awaits the write. The commit wakes the watch, and every open tab repaints. A page on several tables watches one small query (`SELECT count(*), max(id) FROM comments WHERE article_id = :id`) and reads the rest in the loop.
 
 ## Tests
 
@@ -206,7 +200,7 @@ async def test_the_page_loads_and_bad_input_is_refused(client):
     assert (await client.post(TOGGLE_TODO.href(99))).status_code == 404
 ```
 
-Read the first event, so the subscription is up. Send the command. Assert the next event. `timeout=2` fails a missing repaint in two seconds: the whole check for "the other tab never updates", with no browser.
+Read the first event (the subscription is up), send the command, assert the next event. `timeout=2` fails a missing repaint in two seconds, with no browser.
 
 ## Go to the page a command made
 
@@ -222,10 +216,31 @@ async def create(self, c: Context, w: Writer) -> None:
     SSE(w).navigate(ROOM.href(room_id))
 ```
 
+## A live count on every page
+
+A navbar count (unread notifications) has its own stream. The element skips the page's morphs and shows a signal that its stream sends:
+
+```python
+h.Span(  # in the navbar in app/layout.py
+    {"id": "unread"},
+    data.signals({"_unread": 0}, if_missing=True),
+    data.init(at.get(UNREAD_LIVE.href(), retry="always")),
+    data.ignore_morph(),
+    data.text("$_unread"),
+)
+
+
+async def unread(self, c: Context, w: Writer) -> None:  # UNREAD_LIVE
+    sse = SSE(w)
+    async with self.db.watch(UNREAD, user_id=require_user(c)) as rows:
+        async for rows in c.alive(rows):
+            sse.patch_signals({"_unread": rows[0][0]})
+```
+
 ## Paging
 
-The page number is in the query: `TODOS.href(query={"page": 2})`, read with `c.req.query.get("page", "1")` (check `isdecimal()`). SQL: `LIMIT :limit OFFSET :offset`, and `count(*)` for the number of pages. Each page number is an `<a href>`. Sort and filter: skill `stario-view`.
+`TODOS.href(query={"page": 2})`, read with `c.req.query.get("page", "1")` (check `isdecimal()`). SQL: `LIMIT :limit OFFSET :offset`, and `count(*)` for the pages. Each page number is an `<a href>`.
 
 ## Remove a page, or split one
 
-Delete its page file and test file, its routes, its `register` line, and fix the imports pyrefly reports. Ask before you drop its tables. A page file over about 400 lines usually hides a second resource: split by URL noun, not by layer.
+Delete its file, test, routes, and `register` line; pyrefly reports the imports. Ask before you drop its tables. A page file over 400 lines hides a second resource: split by URL noun.

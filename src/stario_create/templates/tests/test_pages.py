@@ -117,8 +117,10 @@ async def stream_problems(client, url: str, page: Page) -> list[str]:
             if response.status_code != 200:
                 found.append(f"{url}: the stream {live} answers {response.status_code}")
                 continue
-            first = (await anext(response.iter_events()))["data"]
-        if text not in first:
+            event = await anext(response.iter_events())
+        if event.get("event") == "datastar-patch-signals":
+            continue  # a stream of signals (a live count) leaves the tag as it is
+        if text not in event["data"]:
             found.append(f"{url}: the stream {live} changes the tag {text}")
     return found
 

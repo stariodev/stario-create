@@ -1,21 +1,19 @@
 ---
 name: stario-litewriter
-description: Change a SQLite table that already holds rows - a new field, a virtual column and index, dropping a column, push and submit, how watch wakes.
+description: Change a SQLite table that already holds rows - upgrade a filled database at start, a new column or field, a virtual column and index, dropping a column, push and submit, how watch wakes.
 ---
 
 # SQLite with litewriter
 
-litewriter is the SQLite store for a Stario app, when the developer wants data on disk. One SQLite file. One writer thread. Reads from any thread. `watch` wakes a stream after a commit changes the rows it reads.
+litewriter is the SQLite store for a Stario app. One SQLite file. One writer thread. Reads from any thread. `watch` wakes a stream after a commit changes the rows it reads.
 
 ```bash
 uv add "litewriter>=0.3.2,<0.4"
 ```
 
-Source: https://github.com/Bobowski/litewriter
-
 ## API at a glance
 
-Verified against litewriter 0.3.2. Do not grep site-packages for signatures.
+Verified against litewriter 0.3. Do not read site-packages.
 
 ```text
 async with LiteWriter(path, schema=schema, claim=30) as db:
@@ -39,25 +37,29 @@ LiteError                        # base of QueryError, StateError, ClaimBusy
 
 ## Open the file in bootstrap
 
+`async with LiteWriter(config.db_path, schema=schema, claim=30) as db:` in `bootstrap` (the scaffold's `app/main.py` with `--db`). `config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. It claims the file, runs `schema` from `app/data.py` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. Pass `db` to each page class. No wrapper goes around it.
+
+## Upgrade a table that holds rows
+
+`schema` runs at every start, on a file that the last version of the app filled. Each change checks first, so the next start changes nothing. A plain table gets a new column like this:
+
 ```python
-from litewriter import LiteWriter
-from stario import App, Relay, Span
-
-from app.config import Config
-from app.data import schema
-from app.layout import ASSETS
-from app.pages.todos import TodosPage
-
-
-async def bootstrap(app: App, span: Span):
-    config = Config.from_env()
-    async with LiteWriter(config.db_path, schema=schema, claim=30) as db:
-        span.attrs(await ASSETS.attach(app))
-        TodosPage(db, Relay[dict]()).register(app)
-        yield
+def schema(tx: Tx) -> None:
+    tx.execute(
+        "CREATE TABLE IF NOT EXISTS articles ("
+        " id INTEGER PRIMARY KEY, title TEXT NOT NULL, created TEXT NOT NULL)"
+    )
+    have = {row[0] for row in tx.query("SELECT name FROM pragma_table_xinfo('articles')")}
+    if "published" not in have:
+        tx.execute("ALTER TABLE articles ADD COLUMN published TEXT")
+        tx.execute("UPDATE articles SET published = created")  # the old rows: published then
+    tx.execute("CREATE INDEX IF NOT EXISTS articles_published ON articles(published)")
+    tx.execute("CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY, data TEXT)")
 ```
 
-`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. An upload also goes in `config.data_dir`. `async with` claims the file, runs `schema` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. `schema` in `app/data.py` creates every table. Pass `db` to each page class. No wrapper goes around it.
+- Set the old rows in the same step as the `ALTER`, and only there: a later start must not touch them. A `NOT NULL` column needs a `DEFAULT`.
+- Never drop, rename, or recreate a table that holds rows. A column of another type is a new column, filled from the old one.
+- A test opens a file that the old `schema` made, with rows, starts the app on it twice, and checks the rows.
 
 ## Tables: `id` plus `data`
 
@@ -121,15 +123,7 @@ A JSON literal goes through `json(...)` as a direct argument: `json_set(data, '$
 
 ## Reads
 
-Reads are plain calls on the loop thread. They do not queue behind the writer.
-
-```python
-rows = db.query("SELECT id, title, done FROM todos ORDER BY id", Todo)
-row = db.one("SELECT id, title, done FROM todos WHERE id = :id", Todo, id=3)
-count = db.value("SELECT count(*) FROM todos")
-```
-
-`:name` in the SQL takes the keyword argument `name`. `one` returns `None` when there is no row; `value` raises. The second positional argument builds each row. A large read (an export) awaits `db.aquery(...)` on a worker thread. Every outside value is a `:name` parameter. An f-string may paste only a constant of the same file.
+`db.query(sql, Row, **params)`, `db.one`, `db.value` (signatures: `stario-api`) run on the loop thread and do not queue behind the writer. Every outside value is a `:name` parameter. An f-string may paste only a constant of the same file.
 
 ## Writes
 

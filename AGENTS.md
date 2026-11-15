@@ -147,8 +147,8 @@ Plan the routes, tables, and shared markup first. Then write `app/urls.py`, `app
 An app keeps the layout it has. `grep -rn 'Route("' app` lists every URL and its file; the page is named by its noun. Read that page, `app/urls.py`, and the part of `app/data.py` it uses, not the whole app. An older app has a folder per page (`app/features/<page>/`: `urls.py`, `views.py`, `handlers.py`, `data.py`): add to it in that shape.
 
 - A new URL: a `Route` in `app/urls.py`, a method on the page class, one line in its `register`.
-- A new field on a table that holds rows: write it into the document, and add a virtual column only when a query filters or sorts by it (skill `stario-litewriter`). `schema` runs at every start: each change in it checks first (`IF NOT EXISTS`, `pragma_table_xinfo`). Never drop a table that holds rows.
-- A new live part (a count, a notice): widen the query the page's stream watches so it changes with the new table.
+- A database that already holds rows: `schema` runs at every start, so each change checks first (`IF NOT EXISTS`, a column missing from `pragma_table_xinfo`) and sets the old rows in that same step. Never drop or recreate a table that holds rows (skill `stario-litewriter`).
+- A new live part on one page: widen the query its stream watches. A count on every page (a navbar badge): its own small stream (skill `stario-feature`).
 - Run the existing tests and the acceptance suite before and after.
 
 ## Tests
