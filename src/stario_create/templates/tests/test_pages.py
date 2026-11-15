@@ -6,6 +6,8 @@ and tests/_lint.py; you need not read it. A test with rows calls `assert not awa
 
 from pathlib import Path
 
+import pytest
+
 from tests._lint import lint
 from tests._pagecheck import check as check
 from tests._pagecheck import check_every_page
@@ -17,4 +19,5 @@ async def test_every_page_checks_out(client):
 
 def test_stario_lint():
     found = lint(Path(__file__).resolve().parents[1])
-    assert not found, "\n".join(map(str, found))
+    if found:
+        pytest.fail("\n".join(map(str, found)), pytrace=False)

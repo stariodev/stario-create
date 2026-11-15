@@ -8,7 +8,7 @@ Stario is Python hypermedia: a handler writes HTML, Datastar morphs it into the 
 ## The loop
 
 1. `uvx stario-create@latest new app --db` where the app lives (`app`, `.`, any path). It installs, writes a tested app, and prints the files you will edit, so you need not open them.
-2. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Leave imports and their order to the check; do not reopen or tidy a file you just wrote. `stario-create add page NAME...` writes a page file with its route, register line, and home link.
+2. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Leave imports and their order to the check; do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` writes a page file with its route, register line, and home link.
 3. `just check` (without `just`: `uvx stario-create@latest check`) formats, fixes lint, runs pyrefly, the tests, and the Stario lint, and prints only problems, each with its fix. Fix what it says; never read `site-packages`.
 4. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, and stop when both pass. Write no tests of your own for it.
 5. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started with `kill $!`, never `pkill -f` (it stops other apps). Wrap no command in `timeout`: macOS has none.

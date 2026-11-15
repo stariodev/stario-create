@@ -193,4 +193,5 @@ async def check_every_page(client) -> None:
             parts = urlsplit(href)
             if not parts.scheme and not parts.netloc and parts.path.startswith("/"):
                 queue.append(parts.path + (f"?{parts.query}" if parts.query else ""))
-    assert not found, "\n".join(found)
+    if found:
+        pytest.fail("\n".join(found), pytrace=False)

@@ -4,6 +4,79 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.15.0
+
+The stario-agent-bench audit of 5.14.0 (`notes/kit-audit/` there) found the turns in
+two places: one write per message while building, and a cleanup loop after the
+acceptance suite passed (`just` missing, ruff B905, edits to the scaffold's tests).
+Every step also carried about 4k tokens of skills that AGENTS.md forced, and the kit
+had errors that cost runs. This release makes AGENTS.md enough for a first page,
+loads a skill only when its topic comes up, and turns rules into commands whose
+output states the fix.
+
+### Added
+
+- `stario-create check`: format, fix lint, pyrefly, and the tests in one call that
+  needs no `just`. It runs every step and names the ones that failed. `just check`
+  stays as the short form and also runs every step now.
+- `stario-create lint`: the Stario rules that ruff and pyrefly miss, each finding
+  with its fix: `attrs-after-children`, `time-unit`, `module-state`,
+  `env-outside-config`, `redirect-after-signals`, `datastar-import`, `json-module`,
+  `bare-task`, `sleep-loop`, `pkill`. A new app runs it in `tests/test_pages.py`.
+- `stario-create request METHOD PATH [-j JSON] [-s JSON] [-d k=v] [-H k:v]...`:
+  requests through `TestClient` in the app's venv, on a fresh data dir; prints the
+  HTML or the first SSE events. No server, no `curl`, no `pkill`.
+- `stario-create add page NAME[=/path/{param}]...`: the page file, its route, its
+  import and register line, and its home link.
+- `stario-create add auth --password`: a users table, sign-up, sign-in, logout, a
+  `Session` with `require`, scrypt hashes, and tests. Without `SESSION_SECRET` the
+  key is kept in `data/session.key`.
+- `CLAUDE.md` with `@AGENTS.md` in a new app, so a project with its own `CLAUDE.md`
+  still loads the guide. `sync` adds the line when it is missing.
+- Skills have `references/`, and `sync` copies them.
+
+### Changed
+
+- `AGENTS.md` (2,984 tokens, was 3,151) no longer orders two skills read up front.
+  It starts with the loop: write every file in one message and leave imports to the
+  check, the check without `just`, the acceptance suite as the check, `request`
+  instead of a server, `kill $!` and never `pkill -f`, no `timeout` wrapper. It has
+  the exact imports, a live page as whole files with paging, commands in the order
+  validate, write, reply, a table of names, `$PORT`, and a spec variable as a
+  `Config` field. The test how-to moved to `stario-feature` and `stario-api`.
+- The kit part of `AGENTS.md` sits between `<!-- BEGIN stario-create -->` and
+  `<!-- END stario-create -->`; `sync` replaces only that part.
+- Skill descriptions name what the skill covers, then when to use it, then what
+  it is not for. Always-on text (the guide and the descriptions) is 3,591 tokens,
+  was 3,678. Each `SKILL.md` holds the common path; rare depth moved to
+  `references/`. The `SKILL.md` bodies total 13.4k tokens, was 20.3k; the
+  references hold 4.2k more.
+- One home for each topic: the todos page in `AGENTS.md`, the litewriter API in
+  `stario-litewriter`, the browser policy in `stario-browser-check`. Plain columns
+  are the default table style; `id` plus JSON is a reference of `stario-litewriter`.
+- `stario-auth` builds on the kits; `stario-api` has an outside API with a cache and
+  an `httpx.MockTransport` test (`references/outside-api.md`).
+- The page check moved to the generated `tests/_pagecheck.py` (with `tests/_lint.py`);
+  `tests/test_pages.py` is a few lines that say not to read or edit them, and `sync`
+  refreshes them. A page whose outside service is down is skipped; a page that
+  answers 500 is reported with its exception.
+- `new` prints the full text of the files a page changes.
+- ruff in a new app ignores B905 (`zip()` without `strict=`).
+- Pins: `stario>=5.8.0`, `litewriter>=0.3.3`.
+
+### Fixed
+
+- `stario-datastar`: a bare number in `debounce=`, `delay=`, or `throttle=` is
+  seconds (it said `200` was a time like `"200ms"`).
+- `stario-jobs`: the test asserts the shutdown span is not `None` and calls
+  `drain_tasks(timeout=1)`, which waited forever for the timer loop.
+  `report_delay` is a `Config` field.
+- `stario-api`: `from_env` does not read `db_path` from `DB_PATH`.
+- `stario-client` points to `stario-datastar` for `data.*` and `at.*`.
+- An attribute after a child raises when the `h.*` call runs, not at render.
+- Every Python example in the guide and the skills is built into a scaffolded app
+  and checked with pyrefly and the Stario lint (`tests/test_examples.py`).
+
 ## 5.14.0
 
 Measured again with stario-agent-bench. After 5.13.0 the turns that were left

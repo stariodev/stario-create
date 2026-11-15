@@ -144,7 +144,7 @@ def cmd_new(args: argparse.Namespace) -> int:
         if (dest / rel).is_file():
             print(f"\n==> {rel} <==\n{(dest / rel).read_text().rstrip()}")
     print(
-        "\nnext: write every page in one step (or `stario-create add page <name>...`), "
+        "\nnext: write every page in one step (or `uvx stario-create@latest add page NAME...`), "
         "then `just check` (without just: `uvx stario-create@latest check`)"
     )
     return 0
@@ -169,7 +169,7 @@ def cmd_add(args: argparse.Namespace) -> int:
             print("wrote " + ", ".join(page.written))
             for line in page.by_hand:
                 print(f"by hand: {line}")
-        print("next: write each render() and handler in app/pages/, then check")
+        print("next: write each render() and handler in app/pages/, then `just check`")
         return 0
     if args.names:
         raise ScaffoldError("extra-args", f"`add {args.kit}` takes no names", "")

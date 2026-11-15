@@ -140,7 +140,7 @@ def test_guide_names_the_tools_that_replace_rules():
     for name in (
         "uvx stario-create@latest check",
         "uvx stario-create@latest request GET",
-        "stario-create add page",
+        "stario-create@latest add page",
         "kill $!",
         "pkill -f",
         "timeout",
