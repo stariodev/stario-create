@@ -31,7 +31,12 @@ class Admins:
         return handler
 ```
 
-In `bootstrap`: `app.use("/admin", session.require, Admins(db, config.admin_emails).require)`.
+`admin_emails: str = ""` is the `Config` field (`from_env` casts to the type of the default). In `bootstrap`:
+
+```python
+emails = frozenset(e.strip().lower() for e in config.admin_emails.split(",") if e.strip())
+app.use("/admin", session.require, Admins(db, emails).require)
+```
 
 ## API tokens
 

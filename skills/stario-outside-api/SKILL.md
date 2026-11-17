@@ -100,4 +100,4 @@ async def test_the_cache_asks_once():
     assert calls == ["/works/1.json", "/works/none.json"]
 ```
 
-A page test with the fake: give `bootstrap` the transport through a `Config` field, or build the page with `BooksApi(http)` on a `TestClient` of a small `App`. The page check in `tests/test_pages.py` skips a page whose API is not running. When the task ships an acceptance suite, that suite is the check: write none of these tests.
+A page test with the fake: build an `App`, register the page on `BooksApi(httpx.AsyncClient(base_url="https://x", transport=transport))`, and pass that `App` to `TestClient`. The page check in `tests/test_pages.py` skips a page whose API is not running. When the task ships an acceptance suite, that suite is the check: write none of these tests.

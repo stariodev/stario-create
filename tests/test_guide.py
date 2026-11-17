@@ -145,7 +145,7 @@ def test_guide_names_the_tools_that_replace_rules():
         "uvx stario-create@latest check",
         "uvx stario-create@latest request GET",
         "stario-create@latest add page",
-        "kill $!",
+        "lsof -ti",
         "pkill -f",
         "timeout",
         "acceptance suite",

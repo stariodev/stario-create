@@ -11,7 +11,7 @@ The server renders the state. JavaScript is for what HTML and Datastar cannot ex
 
 1. **The server.** A search, a filter, or a list is a `GET` that patches its part, not JavaScript over a JSON copy of the data.
 2. **HTML and CSS.** `<dialog>`, `<details>`, `popover`, `:has()`, scroll-snap.
-3. **A Datastar attribute** with a short expression: one or two statements over signals, `el`, `evt`, and `app.*` calls. `data.bind` on `<input type="file">` already gives `[{name, contents, mime}]`; `@post` already follows `navigate`.
+3. **A Datastar attribute** with a short expression: up to three statements over signals, `el`, `evt`, and `app.*` calls. `data.bind` on `<input type="file">` already gives `[{name, contents, mime}]`; `@post` already follows `navigate`.
 4. **A function in `static/js/<name>.js`**, called from an attribute: math, measuring, pointer physics, browser APIs (`visualViewport`, clipboard, `SpeechRecognition`).
 
 ## A file

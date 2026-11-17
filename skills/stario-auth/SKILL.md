@@ -1,6 +1,6 @@
 ---
 name: stario-auth
-description: Accounts in a Stario app - password sign-up and sign-in (add auth --password), Google or GitHub sign-in (add auth), logout, protected pages, rows per user, API tokens. Use for any login, register, or permission need.
+description: Accounts in a Stario app - password sign-up and sign-in (add auth --password), Google or GitHub sign-in (add auth), logout, protected pages, rows per user, API tokens. Use for any login or permission need.
 ---
 
 # Accounts
@@ -12,7 +12,7 @@ uvx stario-create@latest add auth --password   # email and password: sign-up, si
 uvx stario-create@latest add auth              # Google and GitHub through OAuth
 ```
 
-A kit replaces only files still equal to the scaffold; a changed file is kept, and the command prints `merge by hand: <file>` with the path of the kit version. Both kits share one session: a `SignedCookie` that holds the user id, signed, with an expiry. It holds no profile, no password, no role. Handlers never read the cookie: they call `current_user(c)`.
+A kit replaces only files still equal to the scaffold; a changed file is kept, and the command prints `merge by hand: <file>` with the path of the kit version. Both kits write `app.use("/app", session.require)` in `app/main.py`: change the prefix to the task's private pages, or remove it. Both kits share one session: a `SignedCookie` that holds the user id, signed, with an expiry. It holds no profile, no password, no role. Handlers never read the cookie: they call `current_user(c)`.
 
 ## `add auth --password`
 

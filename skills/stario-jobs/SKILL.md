@@ -127,7 +127,8 @@ The button carries `data.indicator` because its own `data.on` sends the request.
 
 ```python
 # app/main.py, inside bootstrap before yield
-ReportsPage(Jobs(), relay, config.report_delay).register(app)
+jobs = Jobs()
+ReportsPage(jobs, relay, config.report_delay).register(app)
 ```
 
 `report_delay: float = 5.0` is a `Config` field; `from_env` reads `REPORT_DELAY`. A test sets it to `0`.

@@ -75,6 +75,7 @@ def render(todos: list[Todo], view: TodosView) -> HtmlElement:
             {"id": "todos"},
             data.signals({"title": "", "_error": ""}, if_missing=True),
             data.init(at.get(TODOS_LIVE.href(query=view.query()), retry="always")),
+            # the form and the error <p> from AGENTS.md stay here
             h.Nav(
                 *[
                     h.A(

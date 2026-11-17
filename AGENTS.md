@@ -8,13 +8,13 @@ Stario is Python hypermedia: a handler writes HTML, Datastar morphs it into the 
 ## The loop
 
 1. `uvx stario-create@latest new app --db` where the app lives (`app`, `.`). Run it without `| tail`: it prints the files you will edit, so you need not open them. Then `cd` into the app folder; every path below starts there.
-2. Accounts or Tailwind: run `uvx stario-create@latest add auth --password` (`add auth`: Google and GitHub; `add tailwind`) before you edit any file: a kit replaces only files you have not changed.
-3. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Write the imports each file uses. Leave imports and their order to the check: it sorts them and drops unused ones, so do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` (`article=/article/{slug}`) writes page files, routes, and links.
+2. A kit runs before you edit any file (it replaces only unchanged files): accounts with a password `uvx stario-create@latest add auth --password`; Google or GitHub sign-in `add auth`; Tailwind `add tailwind`.
+3. Write every file in one message: several Write calls, or one command with a heredoc per file. Write the imports each file uses. Leave imports to the check (it sorts them and drops unused ones): do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` (`article=/article/{slug}`) writes page files, routes, and links.
 4. `just check` (without `just`: `uvx stario-create@latest check`) formats, lints, type-checks, tests, and prints only problems, each with its fix. Fix what it says; never read `site-packages`.
-5. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, in the foreground, never in the background with `sleep` or Monitor,, and stop when both pass. Write no tests of your own for it. Without one, each page gets one test file (skill `stario-feature`).
-6. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started by port (`lsof -ti :8000 | xargs kill`), never `pkill -f` (it stops other apps) or `kill $!`. macOS has no `timeout`, and its `sed -i` needs `''`.
+5. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, in the foreground (never in the background with `sleep` or Monitor), and stop when both pass. Write no tests of your own for it. Without one, each page gets one test file (skill `stario-feature`).
+6. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}' GET /todos`: an action, then a read; each call starts on an empty database). Stop a server you started by port (`lsof -ti :8000 | xargs kill`), never `pkill -f` (it stops other apps). macOS has no `timeout`, and its `sed -i` needs `''`.
 
-`just serve` listens on `STARIO_HOST:STARIO_PORT` (`127.0.0.1:8000`). A platform that gives `$PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. A setting is a field with a default in `Config` (`app/config.py`); `from_env` reads its name in capitals. A database file named by an env var (`DATABASE_PATH`): a field `database_path: str = ""`; `db_path` returns it when set.
+A platform that gives `$PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. A setting is a field with a default in `Config` (`app/config.py`); `from_env` reads its name in capitals. A database file named by an env var (`DATABASE_PATH`): a field `database_path: str = ""`, and the `db_path` property returns `Path(self.database_path)` when set.
 
 ## Imports
 
@@ -141,7 +141,7 @@ def render(todos: list[Todo], n: int) -> HtmlElement:
 
 - `render` returns the whole document from its arguments. Keep the element with `data.init` and `data.signals(..., if_missing=True)` the same in every render (tag, `id`, attributes), so what the user typed survives each repaint.
 - A signal named `_x` stays in the tab: the server can set it, the browser never sends it.
-- A page on several tables watches one small query (`SELECT count(*), max(id) FROM comments WHERE article_id = :id`) and reads the rest in the loop.
+- A page on several tables watches one small query that changes whenever anything shown changes (`SELECT count(*), max(updated) FROM comments WHERE article_id = :id`) and reads the rest in the loop.
 - A page on state that cannot change while it is open is static: `show` only, no stream.
 - A task that defines `/`: rewrite `app/pages/home.py` and keep `HOME` (a second `GET /` raises).
 
@@ -150,7 +150,7 @@ def render(todos: list[Todo], n: int) -> HtmlElement:
 1. Read: `await read_signals(c.req)` (a dict); `c.match.params["id"]` (a string: check, then convert). A plain `<form method="post">` or an upload: `with await read_form(c.req) as f: f.get("title", "")`.
 2. Validate: a bad value gets `SSE(w).patch_signals({"_error": "why"})`, a missing row `w.text("not found", status=404)`, then `return`. A taken unique value: catch `apsw.ConstraintError` around `await self.db.write(...)` and patch `_error`.
 3. Write: `await self.db.write(fn, *args)`; `fn(tx, ...)` lives in `app/data.py` and holds no network call and no password hash.
-4. Reply once: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`. A plain form answers `w.redirect(url, status=303)`. Only a command navigates: a stream whose row is gone just returns.
+4. Reply once: `w.empty()`, `SSE(w).patch_signals(...)` (a confirmation: `{"_toast": "Saved."}`), or `SSE(w).navigate(url)`. A plain form answers `w.redirect(url, status=303)`. Only a command navigates: a stream whose row is gone just returns.
 
 A GET never changes state. A sort, filter, or page number is the URL query, reached by `<a href>` (skill `stario-view`).
 
@@ -162,21 +162,21 @@ w.html(node)  w.text(s, status=400)  w.json(v)  w.empty()  w.redirect(url, statu
 SSE(w).patch_elements(node)  .patch_signals({...})  .navigate(url)
 ROUTE.href(7, query={"page": 2})   Route("GET /docs/{path...}")
 c.req.query.get(k, default)  c.req.cookies.get(k)  c.alive(source)  c.app.create_task(coro)
-db.query(sql, Row, **p) -> list   db.one(...) -> Row | None   db.value(sql, **p)   await db.write(fn, *a)
+db.query(sql, Row, **p) -> list   db.one(...) -> Row | None   db.value(sql, **p)  # raises on no row   await db.write(fn, *a)
 tx.execute(sql, **p)  tx.query  tx.one  tx.value   # in fn(tx, ...): UPDATE, DELETE
 data.on("click", expr, prevent=True, debounce="300ms")  # a bare number is seconds
 data.attr("disabled", "$_saving")  data.indicator("_saving")  data.class_("on", expr)
-data.ref("_dialog")  data.preserve_attr("open")  data.ignore_morph()  at.delete(url)
+data.ref("_dialog")  data.ignore_morph()  at.delete(url)
 ```
 
 `h.*`: attributes first (a dict, `classes("btn", {"on": on})`, each `data.*`), then children. `classes` never goes inside the dict. `True` writes a bare attribute; `None` leaves it out. A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
 
-`ASSETS.href("img/a.svg")` renames the file to `a.<hash>.svg`. A file whose name must stay (an avatar URL a test checks, an upload): `Files(dir, "/media")` (skill `stario-api`).
+`ASSETS.href` renames a file (`a.<hash>.svg`); a file whose name a test or link needs: `Files(dir, "/media")` (skill `stario-api`).
 
 ## Rules
 
 - Keep `app.use("/", same_origin(), security_headers())`: it is the CSRF guard, so add no CSRF tokens.
-- A page class's fields are its dependencies (`db`, `relay`, an API client), built in `bootstrap`. No service classes, repositories, base pages, or `utils`.
+- A page class's fields are its dependencies (`db`, `relay`, an API client), built in `bootstrap`. No service classes, repositories, or `utils`.
 - Reads and writes are functions in `app/data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`. Every outside value is a `:name` parameter.
 - A page may import any module under `app/` except another page. Markup that pages share goes in `app/layout.py`.
 - `page()` in `app/layout.py` is `@baked`: it runs once with placeholders, so no `if`, `==`, or f-string on a parameter. Build a per-request part (a signed-in navbar) in the page and pass it in.

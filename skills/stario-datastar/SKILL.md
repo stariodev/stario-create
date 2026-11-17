@@ -40,7 +40,7 @@ A list of nodes kept in a variable needs its type: `items: list[HtmlElement] = [
 
 - `$title` reads or writes the signal `title`; `$form.title` is nested. `el` is the element; `evt` is the event inside `data.on`.
 - A leading `_` keeps a signal in the tab: `$_open`.
-- Statements join with `;`. More than two statements: a function in `static/js/` (skill `stario-client`).
+- Statements join with `;`. More than three statements, or a branch: a function in `static/js/` (skill `stario-client`).
 - User text inside an expression goes through `string_literal(text)`.
 
 ## Attributes: `data.*`

@@ -72,12 +72,12 @@ async def create(self, c: Context, w: Writer) -> None:
 
 ## A page on several tables
 
-The stream watches one small query that changes when the page should, and reads the rest in the loop:
+The stream watches one small query that changes whenever anything the page shows changes (add an `updated` column to rows that are edited), and reads the rest in the loop:
 
 ```python
 async def live(self, c: Context, w: Writer) -> None:
     article_id, sse = int(c.match.params["article_id"]), SSE(w)
-    version = "SELECT count(*), max(id) FROM comments WHERE article_id = :id"
+    version = "SELECT count(*), max(updated) FROM comments WHERE article_id = :id"
     async with self.db.watch(version, id=article_id) as rows:
         async for _ in c.alive(rows):
             article = get_article(self.db, article_id)
@@ -88,7 +88,7 @@ async def live(self, c: Context, w: Writer) -> None:
 
 ## A live count on every page
 
-A navbar count (unread notifications) has its own stream of one signal, and skips the page's morphs. Only a signed-in user gets the element: a visitor's stream would hit `session.require`, which navigates to the login page. `page()` is `@baked`, so each page builds the part and passes it in:
+A navbar count (unread notifications) has its own stream of one signal, and skips the page's morphs. `page()` is `@baked`, so each page builds the part and passes it in, from `show` and from `live` alike: a repaint without the element removes it. With accounts, only a signed-in user gets it (a visitor's stream would hit `session.require`, which navigates to the login page); without accounts, every page renders it and the stream needs no `require`:
 
 ```python
 def unread_badge() -> HtmlElement:  # in app/layout.py; page() gains `nav: HtmlElement = ""`
@@ -101,7 +101,8 @@ def unread_badge() -> HtmlElement:  # in app/layout.py; page() gains `nav: HtmlE
     )
 
 
-# in each page's show(): page("Todos", body, unread_badge() if current_user(c) else "")
+# render(todos, badge) ends with page("Todos", body, badge); show and live both pass
+# badge = unread_badge() if current_user(c) else ""
 
 
 async def unread(self, c: Context, w: Writer) -> None:  # UNREAD_LIVE, behind session.require
