@@ -1,6 +1,6 @@
 ---
 name: stario-datastar
-description: Every Stario page-side option - h.* tags and helper types, data.* attributes and modifiers, at.* actions, SSE options, morph rules. Use when AGENTS.md lacks an h.*, data.* or at.* option. Not for server code.
+description: Every Stario page-side option - h.* tags and node types, @baked, trusted HTML and Markdown, data.* attributes, at.* actions, SSE methods, morphs. Use when AGENTS.md lacks one or pyrefly rejects a node.
 ---
 
 # The page side: h, data, at, SSE
@@ -15,8 +15,8 @@ Every tag is `h.` plus its name with a capital letter: `h.Div`, `h.Textarea`, `h
 - `classes("btn", {"active": is_on})` is an attribute of its own, never inside a dict.
 - A dict value is `str | int | float | bool | None | SafeString`. `True` writes a bare attribute; `None` or `False` leaves it out.
 - A child is a string (escaped), a number, a node, a list of nodes, or `None` (skipped). `h.Div(*items)` spreads a list.
-- Trusted HTML (rendered Markdown): `SafeString(html)`. Never wrap user text in it.
-- `@baked` caches a function whose output depends only on its arguments. `render(node)` returns the HTML string.
+- Trusted HTML: `SafeString(html)`. Never wrap user text in it. User Markdown can hold raw HTML: render it with HTML off (`uv add markdown-it-py`; `MarkdownIt("commonmark", {"html": False}).render(text)`), then `SafeString`.
+- `@baked` runs the function once, at import, with placeholder arguments, and returns a `SafeString`. Use each parameter only as a whole child or a whole attribute value: an `if`, `==`, or f-string on one raises. Compute those outside and pass the result in. `render(node)` returns the HTML string.
 - A `<select>`: `h.Option({"value": v, "selected": v == current}, label)`.
 
 Types for helpers, so pyrefly agrees:
@@ -65,7 +65,7 @@ data.ignore_morph()   data.ignore(self_only=False)
 
 A time is `"200ms"`, `0.2` (a float: seconds), or `2` (an int: whole seconds); a bare `200` is 200 seconds. `include` and `exclude` take a regex or a list of names. `data.indicator` goes on the element whose `data.on` sends the request (the `<form>` for a submit).
 
-Datastar Pro only, so they do nothing with the free `datastar.js`: `persist`, `query_string`, `replace_url`, `scroll_into_view`, `match_media`, `on_resize`, `on_raf`, `animate`, `custom_validity`, and the actions `clipboard`, `intl`, `fit`.
+Datastar Pro only, so they do nothing with the free `datastar.js`: `persist`, `query_string`, `replace_url`, `scroll_into_view`, `match_media`, `on_resize`, `on_raf`, `animate`, `custom_validity`, `view_transition` (and the `view_transition=` modifier), and the actions `clipboard`, `intl`, `fit`.
 
 ## Actions: `at.*`
 
@@ -92,4 +92,4 @@ sse.navigate(url)   sse.execute_script(code)   sse.remove(selector)
 
 ## How a morph treats the page
 
-`patch_elements` finds each top element by `id` and morphs it in place. The element with `data.init` and `data.signals(..., if_missing=True)` keeps its tag, `id`, and attributes in every render, so its signals survive. A subtree the client owns gets `data.ignore_morph()`. When the stream test shows the new HTML, Datastar puts it on the page (skill `stario-browser-check`).
+`patch_elements` finds each top element by `id` and morphs it in place, so the element with `data.init` and `data.signals(..., if_missing=True)` must keep its tag, `id`, and attributes in every render (AGENTS.md). A subtree the client owns gets `data.ignore_morph()`. When the stream test shows the new HTML, Datastar puts it on the page (skill `stario-browser-check`).

@@ -67,8 +67,8 @@ _NEW_SUMMARY = """\
   tests/test_pages.py    generated: the page check and the lint (with tests/_pagecheck.py,
                          tests/_lint.py, tests/test_js.py); keep them, do not read or edit{agent_note}"""
 
-# Printed in full after the summary: the files a new page changes.
-_NEW_FILES = ("app/main.py", "app/urls.py", "app/data.py", "app/layout.py", "app/pages/home.py")
+# Printed in full before the summary: the files a new page changes, the most used last.
+_NEW_FILES = ("app/layout.py", "app/pages/home.py", "app/main.py", "app/data.py", "app/urls.py")
 
 
 def cmd_new(args: argparse.Namespace) -> int:
@@ -131,21 +131,24 @@ def cmd_new(args: argparse.Namespace) -> int:
         verified = ", tests pass"
 
     where = os.path.relpath(dest)
-    print(f"created {where}/ ({len(created)} files{verified}); app_name={app_name!r}; in it:")
+    print(f"created {where}/ ({len(created)} files{verified}); app_name={app_name!r}")
+    # Agents read the end of long output (`| tail -40`), so the files come first and the
+    # summary and the next step last.
+    for rel in _NEW_FILES:
+        if (dest / rel).is_file():
+            print(f"\n==> {rel} <==\n{(dest / rel).read_text().rstrip()}")
     agent_note = (
         f"\n  (no AGENTS.md or skills here: {os.path.relpath(above)} is the guide)"
         if above
         else "\n  AGENTS.md CLAUDE.md .agents/skills/ .claude/skills/ .cursor/   the guide, skills"
     )
+    print(f"\n{where}/ holds the files above and:")
     print(
         _NEW_SUMMARY.format(db_dep=f" {LITEWRITER_REQ}" if args.db else "", agent_note=agent_note)
     )
-    for rel in _NEW_FILES:
-        if (dest / rel).is_file():
-            print(f"\n==> {rel} <==\n{(dest / rel).read_text().rstrip()}")
     print(
-        "\nnext: write every page in one step (or `uvx stario-create@latest add page NAME...`), "
-        "then `just check` (without just: `uvx stario-create@latest check`)"
+        f"\nnext: cd {where}; write every page in one step (or `uvx stario-create@latest add page "
+        "NAME...`), then `just check` (without just: `uvx stario-create@latest check`)"
     )
     return 0
 

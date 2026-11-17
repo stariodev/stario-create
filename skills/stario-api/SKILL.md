@@ -1,6 +1,6 @@
 ---
 name: stario-api
-description: Stario server names beyond AGENTS.md - an outside HTTP API with a cache and a test fake, cookies, uploads, static files, errors, TestClient options. Use when AGENTS.md lacks a server name or pyrefly rejects one. Not for h.*, data.*, at.*.
+description: Stario server names beyond AGENTS.md - settings, cookies, forms and uploads, static files that keep their name, error pages, redirects, middleware. Use when AGENTS.md lacks a server name or pyrefly rejects one. Not for h.*, data.*, at.*.
 ---
 
 # The Stario API, server side
@@ -17,7 +17,17 @@ from stario.testing import TestClient
 
 ## Serve and settings
 
-`asyncio.run(serve(bootstrap))` reads `STARIO_HOST` and `STARIO_PORT`. In code instead: `serve(bootstrap, config=ServerConfig(host=..., port=...))`; then no `STARIO_*` variable is read. A setting is a `Config` field with a default; `from_env` reads its name in capitals (`app_name` from `APP_NAME`) and casts it to the type of the default. `db_path` is a property, so no variable sets it.
+`asyncio.run(serve(bootstrap))` reads `STARIO_HOST` and `STARIO_PORT`. In code instead: `serve(bootstrap, config=ServerConfig(host=..., port=...))`; then no `STARIO_*` variable is read. A setting is a `Config` field with a default; `from_env` reads its name in capitals (`app_name` from `APP_NAME`) and casts it to the type of the default. `db_path` is a property, so no variable sets it. A database file named by an env var keeps the tests apart (they set only `PROJECT_DATA_DIR`):
+
+```python
+# app/config.py, in Config
+database_path: str = ""  # DATABASE_PATH
+
+
+@property
+def db_path(self) -> Path:
+    return Path(self.database_path) if self.database_path else self.data_dir / "app.sqlite3"
+```
 
 ## App, Route, Context
 
@@ -34,7 +44,7 @@ c.span.event("todo.added", {"id": 7})  c.span.attrs({...})  c.span.fail("why")
 w.respond(body, b"text/csv", status=200)   w.headers.set(name, value)   # before the answer
 ```
 
-`href` percent-encodes each value; a value with `/` raises (use `{path...}`). A literal segment beats a parameter: `/editor` and `/editor/{slug}` both work. An unknown path gets a text 404 unless `app.not_found` sets a page; another method on a known path gets 405. A missing row in a handler: `w.html(not_found_page(), status=404)`.
+`href` percent-encodes each value; a value with `/` raises (use `{path...}`). A literal segment beats a parameter: `/editor` and `/editor/{slug}` both work. An unknown path gets a text 404 unless `app.not_found` sets a page; another method on a known path gets 405. A missing row in a handler: `w.text("not found", status=404)`, or `w.html(your_page, status=404)`.
 
 ## Errors and redirects
 
@@ -70,20 +80,21 @@ with await read_form(c.req) as form:
     photo = form.file("photo")  # UploadFile | None; await photo.read()
 ```
 
-A file input bound with `data.bind` sends a `FileSignal` dict instead (`name`, `contents` in base64, `mime`).
+A file input bound with `data.bind` sends a list of `FileSignal` dicts instead (`name`, `contents` in base64, `mime`).
 
 ## Static files
 
 ```python
 UPLOADS = Files(config.data_dir / "uploads", "/uploads")  # live files, ETag
+MEDIA = Files(Path("media"), "/media")  # files linked by their own name
 # in bootstrap: span.attrs(await ASSETS.attach(app)); await UPLOADS.attach(app)
 ```
 
-`ASSETS.href("css/app.css")` gives a fingerprinted URL, cached forever, and raises at import when the file is missing. A file the spec gives: copy it into `static/`.
+`ASSETS.href("css/app.css")` gives a fingerprinted URL (`app.<hash>.css`), cached forever, and raises at import when the file is missing. A file whose URL must keep its name (an avatar a test looks for, a favicon, an upload) is served by `Files`, which does not rename: copy it into `media/` and link `/media/default-avatar.svg`.
 
-## JSON and an outside HTTP API
+## JSON
 
-`loads(text)` returns `object`: narrow it (`cast(list[str], loads(s))`, or check `isinstance`). Stario has no HTTP client: `uv add httpx`, open one `httpx.AsyncClient` in `bootstrap`, and pass it to the pages like `db`. The whole recipe, with a cache and a test that needs no network: `references/outside-api.md`.
+`loads(text)` returns `object`: narrow it (`cast(list[str], loads(s))`, or check `isinstance`). An outside HTTP API: skill `stario-outside-api`.
 
 ## Middleware
 
@@ -93,4 +104,4 @@ UPLOADS = Files(config.data_dir / "uploads", "/uploads")  # live files, ETag
 
 ## Tests
 
-`TestClient` calls, the stream pattern, cookies, and `drain_tasks`: `references/testclient.md`. SQLite (`LiteWriter`, `watch`): skill `stario-litewriter`. `Relay`: skill `stario-relay`.
+`TestClient` calls, the stream pattern, cookies, and `drain_tasks`: skill `stario-feature`. SQLite (`LiteWriter`, `watch`): skill `stario-litewriter`. `Relay`: skill `stario-relay`.

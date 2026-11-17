@@ -26,7 +26,7 @@ The test reads events until one contains `done`. `timeout=2` covers the whole st
 
 ## Loops stop on shutdown
 
-The `server.shutdown` span gets one `server.shutdown.task_cancelled` event, with `task.name`, for each task that the drain cancels (stario 5.3.2). Give the loop a `name`. A test checks that the loop stops in time:
+The `server.shutdown` span gets one `server.shutdown.task_cancelled` event, with `task.name`, for each task that the drain cancels. Give the loop a `name`. A test checks that the loop stops in time:
 
 ```python
 # tests/test_shutdown.py

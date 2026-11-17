@@ -9,6 +9,8 @@ extend-exclude = [".agents", ".claude", ".cursor", "tests/_pagecheck.py", "tests
 select = ["E", "F", "I", "UP", "B"]
 # E501: ruff format owns the line length. B905: zip() needs no strict= in a web app.
 ignore = ["E501", "B905"]
+# F841: `just check` removes an unused local, as it removes an unused import.
+extend-safe-fixes = ["F841"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

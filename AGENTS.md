@@ -3,22 +3,23 @@
 
 How to build a Stario app, unless the developer asks for something else.
 
-Stario is Python hypermedia: a handler writes HTML, Datastar morphs it into the page, and one open SSE response keeps a page live. Not ASGI: no Uvicorn, FastAPI, or Jinja. This file is enough for a working app; the table at the end names the skill for each feature.
+Stario is Python hypermedia: a handler writes HTML, Datastar morphs it into the page, and one open SSE response keeps a page live. Not ASGI: no Uvicorn, FastAPI, or Jinja.
 
 ## The loop
 
-1. `uvx stario-create@latest new app --db` where the app lives (`app`, `.`, any path). It installs, writes a tested app, and prints the files you will edit, so you need not open them.
-2. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Leave imports and their order to the check; do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` writes a page file with its route, register line, and home link.
-3. `just check` (without `just`: `uvx stario-create@latest check`) formats, fixes lint, runs pyrefly, the tests, and the Stario lint, and prints only problems, each with its fix. Fix what it says; never read `site-packages`.
-4. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, and stop when both pass. Write no tests of your own for it.
-5. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started with `kill $!`, never `pkill -f` (it stops other apps). Wrap no command in `timeout`: macOS has none.
+1. `uvx stario-create@latest new app --db` where the app lives (`app`, `.`). Run it without `| tail`: it prints the files you will edit, so you need not open them. Then `cd` into the app folder; every path below starts there.
+2. Accounts or Tailwind: run `uvx stario-create@latest add auth --password` (`add auth`: Google and GitHub; `add tailwind`) before you edit any file: a kit replaces only files you have not changed.
+3. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Write the imports each file uses. Leave imports and their order to the check: it sorts them and drops unused ones, so do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` (`article=/article/{slug}`) writes page files, routes, register lines, and home links.
+4. `just check` (without `just`: `uvx stario-create@latest check`) formats, lints, type-checks, tests, and prints only problems, each with its fix. Fix what it says; never read `site-packages`.
+5. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, in the foreground, never in the background with `sleep` or Monitor,, and stop when both pass. Write no tests of your own for it. Without one, each page gets one test file (skill `stario-feature`).
+6. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started by port (`lsof -ti :8000 | xargs kill`), never `pkill -f` (it stops other apps); `kill $!` misses a job from an earlier command. macOS has no `timeout`, and its `sed -i` needs `''`.
 
-`just serve` (`just dev` reloads) listens on `STARIO_HOST:STARIO_PORT`, default `127.0.0.1:8000`. A platform that gives `$PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. A setting is a field with a default in `Config` (`app/config.py`); `from_env` reads its name in capitals. A spec's `DATABASE_PATH` is a field `database_path: Path = Path("data/app.sqlite3")`, opened in place of `db_path`.
+`just serve` listens on `STARIO_HOST:STARIO_PORT` (`127.0.0.1:8000`). A platform that gives `$PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. A setting is a field with a default in `Config` (`app/config.py`); `from_env` reads its name in capitals. A database file named by an env var (`DATABASE_PATH`): a field `database_path: str = ""`; `db_path` returns it when set.
 
 ## Imports
 
 ```python
-from stario import App, Context, RedirectException, Relay, Route, Writer, classes, h
+from stario import App, Context, Route, Writer, classes, h
 from stario.datastar import SSE, at, data, read_signals  # not from `stario`
 from stario.datastar.format import string_literal  # user text inside an expression
 from stario.forms import read_form
@@ -30,7 +31,7 @@ import apsw  # apsw.ConstraintError: a UNIQUE or CHECK failed
 
 ## A live page
 
-A page on shared state has three routes. The stream is the only thing that sends the page's HTML; it follows `db.watch(sql)`, so a command only validates, writes, and replies.
+A page on shared state has three routes. `show` sends the first HTML; after that only the stream sends HTML. The stream follows `db.watch(sql)`, so a command validates, writes, and replies, and never renders.
 
 ```python
 # app/urls.py
@@ -57,7 +58,7 @@ class Todo:
     title: str
 
 
-def schema(tx: Tx) -> None:  # runs at every start: IF NOT EXISTS on every CREATE
+def schema(tx: Tx) -> None:
     tx.execute("CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
 
 
@@ -138,25 +139,28 @@ def render(todos: list[Todo], n: int) -> HtmlElement:
 
 `app/main.py` registers it under `# pages`: `TodosPage(db).register(app)`; `app/pages/home.py` links it with `(TODOS, "Todos")` in `LINKS`.
 
-- `render` returns the whole document from its arguments. The element with `data.init` and `data.signals(..., if_missing=True)` keeps its tag, `id`, and attributes in every render, so what the user typed survives each repaint.
-- A signal with a leading `_` stays in the tab: the server can set it, the browser never sends it.
+- `render` returns the whole document from its arguments. Keep the element with `data.init` and `data.signals(..., if_missing=True)` the same in every render (tag, `id`, attributes), so what the user typed survives each repaint.
+- A signal named `_x` stays in the tab: the server can set it, the browser never sends it.
+- A page on several tables watches one small query (`SELECT count(*), max(id) FROM comments WHERE article_id = :id`) and reads the rest in the loop.
 - A page on state that cannot change while it is open is static: `show` only, no stream.
+- A task that defines `/`: rewrite `app/pages/home.py` and keep `HOME` (a second `GET /` raises).
 
 ## Commands
 
 1. Read: `await read_signals(c.req)` (a dict); `c.match.params["id"]` (a string: check, then convert). A plain `<form method="post">` or an upload: `with await read_form(c.req) as f: f.get("title", "")`.
 2. Validate: a bad value gets `SSE(w).patch_signals({"_error": "why"})`, a missing row `w.text("not found", status=404)`, then `return`. A taken unique value: catch `apsw.ConstraintError` around `await self.db.write(...)` and patch `_error`.
-3. Write: `await self.db.write(fn, *args)`; `fn(tx, ...)` lives in `app/data.py` and holds no network call and no password hash. State in memory: skill `stario-relay`.
+3. Write: `await self.db.write(fn, *args)`; `fn(tx, ...)` lives in `app/data.py` and holds no network call and no password hash.
 4. Reply once: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`. A plain form answers `w.redirect(url, status=303)`. Only a command navigates: a stream whose row is gone just returns.
 
-A GET never changes state. A view (sort, filter, page number) is the URL query, reached by `<a href>`; search as you type is a `GET` that patches one part (skill `stario-view`).
+A GET never changes state. A sort, filter, or page number is the URL query, reached by `<a href>` (skill `stario-view`).
 
 ## Names
 
 ```text
-w.html(node, status=200)  w.text(s, status=400)  w.json(v)  w.empty()  w.redirect(url, status=303)
+h.Div(...)  # every HTML tag is h.<Name>; nodes kept in a variable are list[HtmlElement]
+w.html(node)  w.text(s, status=400)  w.json(v)  w.empty()  w.redirect(url, status=303)  # pass 303: the default is 307
 SSE(w).patch_elements(node)  .patch_signals({...})  .navigate(url)
-ROUTE.href(7, query={"page": 2})   Route("GET /docs/{path...}")   app.not_found("/", handler)
+ROUTE.href(7, query={"page": 2})   Route("GET /docs/{path...}")
 c.req.query.get(k, default)  c.req.cookies.get(k)  c.alive(source)  c.app.create_task(coro)
 db.query(sql, Row, **p) -> list   db.one(...) -> Row | None   db.value(sql, **p)   await db.write(fn, *a)
 data.on("click", expr, prevent=True, debounce="300ms")  # a bare number is seconds
@@ -164,19 +168,22 @@ data.attr("disabled", "$_saving")  data.indicator("_saving")  data.class_("on", 
 data.ref("_dialog")  data.preserve_attr("open")  data.ignore_morph()  at.delete(url)
 ```
 
-`h.Div`, `h.A`, `h.HtmlDocument`: attributes first (a dict, `classes("btn", {"on": on})`, each `data.*`), then children. `classes` never goes inside the dict. `True` writes a bare attribute; `None` leaves it out. A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
+`h.*`: attributes first (a dict, `classes("btn", {"on": on})`, each `data.*`), then children. `classes` never goes inside the dict. `True` writes a bare attribute; `None` leaves it out. A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
+
+`ASSETS.href("img/a.svg")` renames the file to `a.<hash>.svg`. A file whose name must stay (an avatar URL a test checks, an upload): `Files(dir, "/media")` (skill `stario-api`).
 
 ## Rules
 
-- `bootstrap(app, span)` is an async generator with one `yield`. Keep `app.use("/", same_origin(), security_headers())`: it is the CSRF guard, so add no CSRF tokens.
-- A handler is `async def (c: Context, w: Writer) -> None`. A page class's fields are its dependencies (`db`, `relay`, an API client), built in `bootstrap`. No service classes, repositories, base pages, or `utils`.
+- Keep `app.use("/", same_origin(), security_headers())`: it is the CSRF guard, so add no CSRF tokens.
+- A page class's fields are its dependencies (`db`, `relay`, an API client), built in `bootstrap`. No service classes, repositories, base pages, or `utils`.
 - Reads and writes are functions in `app/data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`. Every outside value is a `:name` parameter.
-- A page imports `app.urls`, `app.data`, and `app.layout`, never another page. Markup that pages share goes in `app/layout.py`.
+- A page may import any module under `app/` except another page. Markup that pages share goes in `app/layout.py`.
+- `page()` in `app/layout.py` is `@baked`: it runs once with placeholders, so no `if`, `==`, or f-string on a parameter. Build a per-request part (a signed-in navbar) in the page and pass it in.
 - JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string (skill `stario-client`).
 
 ## Change an existing app
 
-An app keeps its layout (an older one has `app/features/<page>/`). `grep -rn 'Route("' app` lists every URL and its file; read that page, `app/urls.py`, and the part of `app/data.py` it uses. A table with rows changes shape in `schema`, never dropped or recreated (skill `stario-litewriter`). Run the tests before and after. `tests/test_pages.py` and what it imports are generated: do not read or edit them.
+Keep the app's file layout. `grep -rn 'Route("' app` lists every URL and its file; read that page, `app/urls.py`, and the part of `app/data.py` it uses. A table with rows changes shape in `schema`, never dropped or recreated (skill `stario-litewriter`). `just test` before you change anything, `just check` after. `tests/test_pages.py` and what it imports are generated: do not read or edit them.
 
 ## Skills
 
@@ -185,20 +192,17 @@ When the task matches a row, load that skill before you write code for it.
 | The task needs | Skill |
 | --- | --- |
 | Sign-up and sign-in (password, Google, GitHub), protected pages, rows per user | `stario-auth` |
-| A new column on a table that holds rows | `stario-litewriter` |
-| A sort or filter in the URL, search as you type | `stario-view` |
+| A change to a table that already holds rows; a stream that does not repaint | `stario-litewriter` |
+| A sort, filter, or page number in the URL; search as you type | `stario-view` |
+| An outside HTTP API (a client, a cache, a fake for tests) | `stario-outside-api` |
 | State in memory, an edit dialog, a message to one tab | `stario-relay` |
 | Tests for a page, go to the page a command made, a navbar count | `stario-feature` |
-| An outside HTTP API, cookies, uploads, errors, a name this file lacks | `stario-api` |
-| A `h.*`, `data.*`, or `at.*` option this file lacks | `stario-datastar` |
+| Cookies, uploads, static files, error pages, a server name this file lacks | `stario-api` |
+| A `h.*`, `data.*`, `at.*`, or `SSE` option this file lacks; `@baked` | `stario-datastar` |
 | Slow work, a timer loop | `stario-jobs` |
 | JavaScript | `stario-client` |
 | Tailwind and DaisyUI | `stario-tailwind-daisyui` |
 | A browser or a screenshot | `stario-browser-check` |
-
-## Cursor Cloud specific instructions
-
-Install is `.cursor/cloud-install.sh`.
 
 <!-- END stario-create -->
 

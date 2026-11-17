@@ -33,15 +33,19 @@ def _python_blocks(text: str) -> list[str]:
 def test_guide_fits_rule_loader_budget(profile):
     # Rule loaders (Devin) cut always-on rules at 16 KB. The app guide is enough for a
     # first page, and leaves the `## This app` notes (4 KB) room under that cut. It
-    # rides along on every agent step: 5.14.0 was 11.9 KB, this one may not grow.
-    assert len(guide_text(profile).encode()) <= (11_200 if profile == "app" else 9_000)
+    # rides along on every agent step: 5.14.0 was 11.9 KB. 5.16 adds the lines that
+    # cost steps in the round-3 transcripts (kit order, @baked, a fixed file name,
+    # the suite in the foreground) and stays under 12 KB, so 4 KB of notes fit.
+    assert len(guide_text(profile).encode()) <= (12_000 if profile == "app" else 9_000)
 
 
 def test_always_on_text_stays_small():
     # The guide and every skill description sit in context on every step. 5.14.0
-    # had 13.9 KB (about 3.6k tokens); the kit stays at or below that.
+    # had 13.9 KB (about 3.6k tokens). 5.16 has one more skill and the guide lines the
+    # round-3 transcripts asked for; a cache read of 300 more tokens costs far less
+    # than the steps they save, but the total still may not grow past 14.3 KB.
     size = len(guide_text().encode()) + sum(len(description(n).encode()) for n in skill_names())
-    assert size <= 13_400, size
+    assert size <= 14_300, size
 
 
 @pytest.mark.parametrize("name", skill_names())
@@ -210,7 +214,7 @@ def test_handler_skill_lists_the_server_api():
     ]:
         assert name in text, name
     assert "stario-api" in guide_text()
-    assert "stario-api" in skill_text("stario-feature")
+    assert "stario-feature" in skill_text("stario-api")
 
 
 def test_litewriter_skill_teaches_watch_with_a_sort():

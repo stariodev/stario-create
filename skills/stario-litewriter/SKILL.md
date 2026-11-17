@@ -1,6 +1,6 @@
 ---
 name: stario-litewriter
-description: Change a SQLite table that already holds rows - upgrade at start, a new column with its old rows filled, indexes, unique values, JSON columns, how watch wakes. Use when the schema of a filled database changes or a watch does not repaint.
+description: Change a SQLite table that already holds rows - a new column with its old rows filled, indexes, JSON columns, how watch wakes. Use when a filled database changes shape or a watch does not repaint. Not for a new table (AGENTS.md).
 ---
 
 # SQLite with litewriter
@@ -60,7 +60,7 @@ A write is a plain `def` whose first argument is `tx`, in `app/data.py`. The wri
 
 ## The stream: `watch`
 
-- The first iteration gives the rows now; each later one comes after a commit that writes a table and a column that the query reads. Equal rows do not wake. A slow stream gets the newest rows, not a backlog.
+- The first iteration gives the rows now; each later one comes after a commit that changes a column the query reads. Equal rows do not wake. A slow stream gets the newest rows, not a backlog.
 - A new field that the query does not select repaints nothing: add it to the query.
 - Values are parameters: `db.watch(SQL, Todo, most=0)`. `ORDER BY` and column names cannot be parameters: keep one fixed SQL text per sort key (skill `stario-view`).
 - Only commits through this `LiteWriter` wake a watch; a write from another process does not.

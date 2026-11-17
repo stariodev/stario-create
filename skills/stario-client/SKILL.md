@@ -1,6 +1,6 @@
 ---
 name: stario-client
-description: JavaScript in a Stario app - where it goes and how Python calls it. Use before any script, addEventListener, long data.on expression, drag, picker, clipboard, or theme toggle. Not for what a GET or a data.* attribute does.
+description: JavaScript in a Stario app - where it goes and how Python calls it. Use before any script, addEventListener, long data.on expression, drag, picker, or clipboard. Not for what a GET or a data.* attribute does.
 ---
 
 # Client behaviour

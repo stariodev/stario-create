@@ -167,7 +167,7 @@ async def drop_finished_forever(app: App, jobs: Jobs, interval: float) -> None:
 app.create_task(drop_finished_forever(app, jobs, 600), name="jobs.drop_finished")
 ```
 
-- `asyncio.wait` returns after `interval`, or at once when shutdown starts; it does not cancel `app.shutdown`. Read `app.shutdown` once, before the loop: each read makes a new shield.
+- `asyncio.wait` returns after `interval`, or at once when shutdown starts; it does not cancel `app.shutdown`. Read `app.shutdown` once, before the loop: each read returns a new awaitable.
 - Never end a pass with `asyncio.sleep(interval)`: the drain then waits up to one interval and, after 5 s, cancels the loop.
 - A loop that waits on a queue or an event waits on `shutdown` too: `asyncio.wait({event_wait, shutdown}, timeout=...)`; clear the event after the wait.
 - Give the loop a `name`. In a handler, loop on `c.alive()` instead.

@@ -1,11 +1,11 @@
 ---
 name: stario-feature
-description: Tests for a Stario page (stream, two tabs, bad input) and page extras - go to the page a command made, a navbar count, several tables, removing a page. Use when writing TestClient tests or one of these. Not for a first page.
+description: Tests for a Stario page (TestClient calls, a stream, two tabs, bad input) and page extras - go to the page a command made, a live navbar count, several tables, removing a page. Use when writing tests or one of these.
 ---
 
 # Tests for a page, and page extras
 
-The first page is the todos page of AGENTS.md; this skill builds on its names (`TODOS`, `TODOS_LIVE`, `ADD_TODO`). When the task ships an acceptance suite, that suite is the check: write none of these tests.
+Examples use the todos names from AGENTS.md (`TODOS`, `TODOS_LIVE`, `ADD_TODO`). When the task ships an acceptance suite, that suite is the check: write none of these tests.
 
 ## Tests for a page
 
@@ -38,7 +38,23 @@ async def test_the_page_loads_with_rows_and_bad_input_is_refused(client):
     assert "_error" in (await client.post(ADD_TODO.href(), json={"title": " "})).text
 ```
 
-Read the first event (the subscription is up), send the command, assert the next event. `timeout=2` fails a missing repaint in two seconds, with no browser. A plain form posts `data={...}`; a GET with signals sends `params={"datastar": '{"q": "x"}'}`. Every `TestClient` call: skill `stario-api`, `references/testclient.md`.
+Read the first event (the subscription is up), send the command, assert the next event. `timeout=2` fails a missing repaint in two seconds, with no browser. Two streams are two tabs.
+
+```text
+r = await client.get(url, params={"datastar": '{"q": "x"}'})   # a GET with signals
+r = await client.post(url, json={"title": "milk"})       # a Datastar action
+r = await client.post(url, data={"email": "a@b.c"})      # a plain form, urlencoded
+r = await client.post(url, files={"photo": ("a.png", b"...", "image/png")})
+r = await client.get(url, follow_redirects=False)        # r.headers.get("location")
+r.status_code  r.text  r.json()  r.url (a str)  r.headers.get(name)  r.cookies
+await client.drain_tasks(timeout=1)        # waits for every create_task task
+client.tracer.find_span("report.run")      # TelemetrySpan | None
+```
+
+- Buffered calls follow redirects; `stream` does not. A `navigate` answer contains `window.location`.
+- `client.cookies` is a dict: `client.cookies.clear()` signs out; saving and restoring it switches users.
+- Other settings: `monkeypatch.setenv("REPORT_DELAY", "0")` before `TestClient(bootstrap)`; `Config.from_env` reads it.
+- A bug starts with a test that shows it.
 
 ## Go to the page a command made
 
@@ -72,16 +88,20 @@ async def live(self, c: Context, w: Writer) -> None:
 
 ## A live count on every page
 
-A navbar count (unread notifications) has its own stream of one signal. The element skips the page's morphs:
+A navbar count (unread notifications) has its own stream of one signal, and skips the page's morphs. Only a signed-in user gets the element: a visitor's stream would hit `session.require`, which navigates to the login page. `page()` is `@baked`, so each page builds the part and passes it in:
 
 ```python
-h.Span(  # in the navbar in app/layout.py
-    {"id": "unread"},
-    data.signals({"_unread": 0}, if_missing=True),
-    data.init(at.get(UNREAD_LIVE.href(), retry="always")),
-    data.ignore_morph(),
-    data.text("$_unread"),
-)
+def unread_badge() -> HtmlElement:  # in app/layout.py; page() gains `nav: HtmlElement = ""`
+    return h.Span(
+        {"id": "unread"},
+        data.signals({"_unread": 0}, if_missing=True),
+        data.init(at.get(UNREAD_LIVE.href(), retry="always")),
+        data.ignore_morph(),
+        data.text("$_unread"),
+    )
+
+
+# in each page's show(): page("Todos", body, unread_badge() if current_user(c) else "")
 
 
 async def unread(self, c: Context, w: Writer) -> None:  # UNREAD_LIVE, behind session.require

@@ -4,6 +4,60 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.16.0
+
+From two reviews of 5.15.0: an Opus read of the guide and every skill against
+stario 5.8.3 (wrong facts, contradictions, loading points), and the transcripts of
+the 12 round-3 screen builds in stario-agent-bench (where steps went, which skills
+loaded and were used). Each change below names what it fixes.
+
+### Added
+
+- `stario-outside-api`: the outside HTTP API recipe (one httpx client, a cache, a
+  404 page, `httpx.MockTransport` tests) is its own skill with its own row. Pokédex
+  runs read all of `stario-api` (cookies, middleware, errors) to reach it.
+- `evals/probe.py`: read-only probes of the guide and skills. A case runs one
+  `claude -p` in a fresh scaffolded app and records which skills loaded, what was
+  read, and whether the planned code or answer matches. `cases/route.jsonl` (20
+  feature requests; Haiku and Sonnet), `cases/decide.jsonl` (27 narrow questions;
+  Opus) and `cases/decide-skills.jsonl` (13 questions answered in a skill). The old
+  `devin` evals, which predated the one-file-per-page layout, are gone.
+
+### Changed
+
+- `AGENTS.md`: run `add auth` or `add tailwind` right after `new`, before editing
+  a file (a kit replaces only unchanged files; every Conduit run merged by hand).
+  Write the imports a file uses (ruff drops and sorts, it does not add). `page()`
+  is `@baked`: no `if` or f-string on a parameter; pass per-request parts in. The
+  acceptance suite runs in the foreground (one run spent 74 of 126 steps polling a
+  backgrounded suite). Stop a server by its port; `kill $!` does not reach a job
+  from an earlier command. `ASSETS.href` renames files; a name a test checks needs
+  `Files` (6 of 6 Conduit runs failed the avatar tests first). macOS `sed -i`.
+  `w.redirect` defaults to 307, so pass 303. A page on several tables. A task that
+  defines `/` rewrites the home page. A page may import any module but a page.
+  `show` sends the first HTML; then only the stream does. Run `new` without
+  `| tail` and `cd` into the app. Without an acceptance suite, each page gets one
+  test file. 12.0 KB, under the 16 KB rule-loader cut with the 4 KB of app notes.
+- `new` prints the files first and the summary and next step last: all 12 screen
+  runs piped it through `tail`, lost the summary, and then read the files again.
+- A new app's ruff config marks F841 (an unused local) as a safe fix, so the check
+  removes it as it removes an unused import.
+- `stario-feature`: the navbar count renders only for a signed-in user (a visitor's
+  stream hit `session.require` and was sent to the login page), built outside the
+  `@baked` `page()`. The TestClient calls moved here from `stario-api`, which ended
+  a loop between the two.
+- `stario-auth`: new columns go in `CREATE TABLE`, not through `stario-litewriter`
+  (loaded in 6 of 6 Conduit runs for no use). A task with plain HTML forms keeps the
+  session and password files and rewrites the login page and its test together.
+- `stario-datastar`: `@baked` described as it works (once, with placeholders), user
+  Markdown rendered with raw HTML off before `SafeString`, `view_transition` listed
+  as Pro.
+- `stario-api`: one 404 rule (the undefined `not_found_page()` is gone), a
+  `DATABASE_PATH` that keeps tests isolated, bound file inputs send a list.
+- Descriptions and routing rows agree: `stario-relay` covers an edit dialog on a
+  SQLite page too, `stario-litewriter` is not for a new table, `stario-view` names
+  paging, `stario-client` no longer claims the theme toggle the Tailwind kit ships.
+
 ## 5.15.0
 
 The stario-agent-bench audit of 5.14.0 (`notes/kit-audit/` there) found the turns in

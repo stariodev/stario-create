@@ -1,6 +1,6 @@
 ---
 name: stario-relay
-description: A live Stario page on state in memory through Relay, a message to one tab, an edit dialog that keeps what the user typed. Use when state is not in SQLite. Not for SQLite pages (db.watch).
+description: A live Stario page on state in memory (Relay), a message to one tab, an edit dialog that keeps what the user typed. Use when state is in memory, or any page needs an edit dialog or a message to one tab.
 ---
 
 # Relay: state in memory, and messages to one tab
@@ -8,7 +8,7 @@ description: A live Stario page on state in memory through Relay, a message to o
 One `Relay[dict]` per app, built in `bootstrap`, shared by every page. Two kinds of subject:
 
 - `notes.changed` carries `{}`. Each command publishes it after it changes the state; each stream renders again.
-- `tab.<id>` carries signals for one tab. Only the stream of that tab sends them.
+- `tab.<id>` carries signals for one browser tab, named by its tab id. Only the stream of that tab sends them.
 
 ```text
 relay: Relay[dict] = Relay()            # in bootstrap
@@ -122,7 +122,7 @@ class NotesPage:
             w.text("no such note", status=404)
             return
         if not 1 <= len(title) <= 200:
-            w.text("title must be 1 to 200 characters", status=400)
+            SSE(w).patch_signals({"_error": "title must be 1 to 200 characters"})
             return
         note.title = title
         self.relay.publish(CHANGED, {})

@@ -5,14 +5,14 @@ description: Accounts in a Stario app - password sign-up and sign-in (add auth -
 
 # Accounts
 
-Never write sign-in by hand: a kit writes tested files. Run one at the app root:
+Never write sign-in by hand: a kit writes tested files. Run one at the app root, right after `new` and before you edit any file:
 
 ```bash
 uvx stario-create@latest add auth --password   # email and password: sign-up, sign-in, logout
 uvx stario-create@latest add auth              # Google and GitHub through OAuth
 ```
 
-A file the app changed is kept: the command prints `merge by hand: <file>` and the path of the kit version. Both kits share one session: a `SignedCookie` that holds the user id, signed, with an expiry. It holds no profile, no password, no role. Handlers never read the cookie: they call `current_user(c)`.
+A kit replaces only files still equal to the scaffold; a changed file is kept, and the command prints `merge by hand: <file>` with the path of the kit version. Both kits share one session: a `SignedCookie` that holds the user id, signed, with an expiry. It holds no profile, no password, no role. Handlers never read the cookie: they call `current_user(c)`.
 
 ## `add auth --password`
 
@@ -23,7 +23,7 @@ A file the app changed is kept: the command prints `merge by hand: <file>` and t
 - `app/config.py`: `session_secret` from `SESSION_SECRET`; unset, a random key kept in `data/session.key`. `APP_DEV=1` drops `Secure` for plain HTTP on a host other than localhost.
 - `tests/test_login.py`: sign-up, sign-in, a wrong password, a taken email, logout, a protected page.
 
-More fields at sign-up (a bio, an image): add them to the `users` table with a check in `schema` (skill `stario-litewriter`), to `add_user`, and to the form. A spec's own URLs (`/register`): change the routes in `app/urls.py`; the page class keeps them.
+More fields at sign-up (a bio, an image): add the columns to the `CREATE TABLE users` in `app/auth/data.py` (a new app has no old rows), to `add_user`, and to the form. A task's own URLs (`/register`): change the routes in `app/urls.py`; the page class keeps them. A task whose forms post plain HTML (`<form method="post">`) or use its own field names: keep `session.py` and `password.py`, and rewrite `app/pages/login.py` and `tests/test_login.py` together in one step.
 
 ## `add auth` (providers)
 

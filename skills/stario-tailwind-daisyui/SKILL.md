@@ -5,7 +5,7 @@ description: Tailwind CSS v4 and DaisyUI for a Stario app (stario-create add tai
 
 # Tailwind and DaisyUI without Node
 
-Do not install Tailwind by hand, and never use `npm` or `npx`. Run the kit in the root of the app:
+Do not install Tailwind by hand, and never use `npm` or `npx`. Run the kit in the root of the app, right after `new` and before you edit `app/layout.py`:
 
 ```bash
 uvx stario-create@latest add tailwind
@@ -21,7 +21,7 @@ The kit writes:
 | `app/layout.py` | `STYLE_CSS` is `css/output.css`. `SCRIPTS` loads `theme.js`. `data-theme` on `<html>`, kept through each morph. The theme restore before the first paint (the only inline script). A DaisyUI toast. |
 | `static/js/theme.js` | `app.theme.toggle()`, kept in `localStorage`. |
 
-A file that the app has changed is not replaced. The command prints `merge by hand: <file>` and the path of the kit version. Read it and merge its lines. Commit `static/css/output.css` after each `just css`. Yard serves the committed file.
+A file that the app has changed is not replaced: the command prints `merge by hand: <file>` and the path of the kit version to merge. Commit `static/css/output.css` after each `just css`. Yard serves the committed file.
 
 ## The theme switch
 

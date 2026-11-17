@@ -22,7 +22,7 @@ The server writes all the HTML. Datastar morphs it into the page. Thus a questio
 | Does a JavaScript call exist? | `tests/test_js.py`. |
 | Does it look right? | Ask the user. When the user watches the app, the user is the browser. |
 
-An app from before stario-create 5.7 adds the page check with `uvx stario-create@latest add pages`. It finds each page from the links and from the `GET` routes in `app/urls.py` (or each `app/features/*/urls.py`).
+An app without `tests/test_pages.py` adds the page check with `uvx stario-create@latest add pages`. It finds each page from the links and from the `GET` routes in `app/urls.py` (or each `app/features/*/urls.py`).
 
 ## When the user says that it does not work
 
