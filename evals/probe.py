@@ -179,6 +179,10 @@ def run_case(case: dict, i: int, args, base: Path, out: Path) -> dict:
     (work_root / "tmp").mkdir()
     mode = case.get("mode", "plan")
     suite = SUITE if mode == "plan" and case.get("suite", True) else ""
+    if suite:  # the workspace matches the prompt: there is an `npm test`
+        (work / "package.json").write_text(
+            '{"private": true, "scripts": {"test": "playwright test"}}\n'
+        )
     prompt = case["prompt"] + suite + (PLAN if mode == "plan" else ANSWER)
     cmd = [
         "claude", "-p", prompt, "--model", args.model,

@@ -48,13 +48,31 @@ Each run writes `evals/runs/probe/<kit>-<cases>-<model>-<time>/`: one JSON file
 per run (skills loaded and at which step, files read, cost, the reply), the raw
 stream, and `summary.md`.
 
+A plan case says that the task ships an acceptance suite, as the benchmark's
+tasks do, and its workspace gets a `package.json` with a `test` script to match;
+`"suite": false` leaves both out (a case that asks for tests). A correct answer
+to a `decide` case passes whether or not a skill loaded: `ok_skills` only marks
+which loads were expected, so the others count as waste.
+
 ## Comparing two kit versions
 
-Check out the baseline next to this one (`git worktree add ../base main`), run
-the same case file with `--kit ../base` and without, and compare the two
-`summary.md` tables: pass rate per case, routing (expected loads that
-happened, loads no case asked for), and median cost. Read the replies of the
-cases that changed. A change goes to the benchmark only when no case got worse.
+```sh
+git worktree add ../base main
+evals/probe.py evals/cases/route.jsonl --kit ../base -n 3
+evals/probe.py evals/cases/route.jsonl -n 3
+evals/probe.py --compare evals/runs/probe/<base run> evals/runs/probe/<new run>
+```
+
+`--compare` grades both runs with today's case patterns and prints, per case,
+the pass rate, the wasted loads per run (a skill no case asked for), and the
+median cost. Read the replies of the cases that changed. A change goes to the
+benchmark only when no case got worse.
+
+What the probes have found so far (5.15.0 → 5.16.0): every routing case loads
+the skill it needs on Haiku; the waste is extra loads (`stario-litewriter` for a
+fresh table, `stario-feature` and `stario-api` "to be safe"). The decision cases
+pass on Opus 81/81 and on Haiku 80/81, so the always-on text is clear; they stay
+as a regression suite.
 
 ## Tasks
 
