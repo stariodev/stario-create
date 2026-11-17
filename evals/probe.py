@@ -269,6 +269,59 @@ def report(out: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def graded(out: Path) -> tuple[dict, dict[str, list[dict]]]:
+    """The runs of a dir, graded with today's case patterns (see report)."""
+    meta = json.loads((out / "meta.json").read_text())
+    cases = {c["id"]: c for c in meta.get("case_list", [])}
+    current = HERE / "cases" / str(meta.get("cases", ""))
+    if current.is_file():
+        for x in current.read_text().splitlines():
+            if x.strip() and not x.startswith("//"):
+                c = json.loads(x)
+                cases[c["id"]] = c
+    by: dict[str, list[dict]] = {}
+    for p in sorted(out.glob("*.json")):
+        if p.name == "meta.json":
+            continue
+        r = json.loads(p.read_text())
+        if r["id"] in cases:
+            r.update(grade(cases[r["id"]], {"loads": r["loads"], "result": {"result": r["reply"], "is_error": False}}))
+            case = cases[r["id"]]
+            allowed = set().union(*[set(w.split("|")) for w in case.get("skills", [])]) | set(case.get("ok_skills", []))
+            r["waste"] = sorted(set(r["loaded"]) - allowed)
+        by.setdefault(r["id"], []).append(r)
+    return cases, by
+
+
+def compare(base: Path, new: Path) -> str:
+    _, a = graded(base)
+    cases, b = graded(new)
+    lines = [f"# {base.name} -> {new.name}", "",
+             "| case | pass | wasted loads per run | median $ | wasted skills (new) |", "|---|---|---|---|---|"]
+    tot = {"pa": 0, "pb": 0, "na": 0, "nb": 0, "wa": 0, "wb": 0, "ca": 0.0, "cb": 0.0}
+    for cid in cases:
+        ra, rb = a.get(cid, []), b.get(cid, [])
+        if not ra or not rb:
+            continue
+        pa, pb = sum(r["pass"] for r in ra), sum(r["pass"] for r in rb)
+        wa, wb = sum(len(r["waste"]) for r in ra), sum(len(r["waste"]) for r in rb)
+        ca = sorted(r["cost"] for r in ra)[len(ra) // 2]
+        cb = sorted(r["cost"] for r in rb)[len(rb) // 2]
+        waste: dict[str, int] = {}
+        for r in rb:
+            for w in r["waste"]:
+                waste[w] = waste.get(w, 0) + 1
+        lines.append(f"| {cid} | {pa}/{len(ra)} -> {pb}/{len(rb)} | {wa / len(ra):.1f} -> {wb / len(rb):.1f} | "
+                     f"{ca:.3f} -> {cb:.3f} | {', '.join(f'{k} {v}' for k, v in sorted(waste.items()))} |")
+        tot["pa"] += pa; tot["pb"] += pb; tot["na"] += len(ra); tot["nb"] += len(rb)
+        tot["wa"] += wa; tot["wb"] += wb
+        tot["ca"] += sum(r["cost"] for r in ra); tot["cb"] += sum(r["cost"] for r in rb)
+    lines += ["", f"Pass {tot['pa']}/{tot['na']} -> {tot['pb']}/{tot['nb']}; wasted loads per run "
+              f"{tot['wa'] / max(tot['na'], 1):.2f} -> {tot['wb'] / max(tot['nb'], 1):.2f}; "
+              f"mean $ per run {tot['ca'] / max(tot['na'], 1):.4f} -> {tot['cb'] / max(tot['nb'], 1):.4f}."]
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cases", nargs="?")
@@ -283,9 +336,14 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=HERE / "runs" / "probe")
     ap.add_argument("--work", default=None, help="parent dir for the throwaway apps")
     ap.add_argument("--report", type=Path, help="print the summary of an earlier run dir")
+    ap.add_argument("--compare", type=Path, nargs=2, metavar=("BASE", "NEW"),
+                    help="two run dirs of the same cases: pass, loads, waste and cost per case")
     args = ap.parse_args()
     if args.report:
         print(report(args.report))
+        return
+    if args.compare:
+        print(compare(*args.compare))
         return
     if not args.cases:
         ap.error("cases is required")

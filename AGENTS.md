@@ -9,10 +9,10 @@ Stario is Python hypermedia: a handler writes HTML, Datastar morphs it into the 
 
 1. `uvx stario-create@latest new app --db` where the app lives (`app`, `.`). Run it without `| tail`: it prints the files you will edit, so you need not open them. Then `cd` into the app folder; every path below starts there.
 2. Accounts or Tailwind: run `uvx stario-create@latest add auth --password` (`add auth`: Google and GitHub; `add tailwind`) before you edit any file: a kit replaces only files you have not changed.
-3. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Write the imports each file uses. Leave imports and their order to the check: it sorts them and drops unused ones, so do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` (`article=/article/{slug}`) writes page files, routes, register lines, and home links.
+3. Write every file in one message: several Write calls, or one command with a heredoc per file (`cat > app/urls.py <<'EOF' ... EOF`, then the next). Write the imports each file uses. Leave imports and their order to the check: it sorts them and drops unused ones, so do not reopen or tidy a file you just wrote. `uvx stario-create@latest add page NAME...` (`article=/article/{slug}`) writes page files, routes, and links.
 4. `just check` (without `just`: `uvx stario-create@latest check`) formats, lints, type-checks, tests, and prints only problems, each with its fix. Fix what it says; never read `site-packages`.
 5. When the task ships an acceptance suite (`npm test`, Playwright), that suite is the check: run it after `just check`, in the foreground, never in the background with `sleep` or Monitor,, and stop when both pass. Write no tests of your own for it. Without one, each page gets one test file (skill `stario-feature`).
-6. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started by port (`lsof -ti :8000 | xargs kill`), never `pkill -f` (it stops other apps); `kill $!` misses a job from an earlier command. macOS has no `timeout`, and its `sed -i` needs `''`.
+6. See a page without a server: `uvx stario-create@latest request GET /todos` prints the HTML or the first stream events (`POST /todos -j '{"title": "x"}'` sends a Datastar action). Stop a server you started by port (`lsof -ti :8000 | xargs kill`), never `pkill -f` (it stops other apps) or `kill $!`. macOS has no `timeout`, and its `sed -i` needs `''`.
 
 `just serve` listens on `STARIO_HOST:STARIO_PORT` (`127.0.0.1:8000`). A platform that gives `$PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT uv run python -m app.main`. A setting is a field with a default in `Config` (`app/config.py`); `from_env` reads its name in capitals. A database file named by an env var (`DATABASE_PATH`): a field `database_path: str = ""`; `db_path` returns it when set.
 
@@ -163,6 +163,7 @@ SSE(w).patch_elements(node)  .patch_signals({...})  .navigate(url)
 ROUTE.href(7, query={"page": 2})   Route("GET /docs/{path...}")
 c.req.query.get(k, default)  c.req.cookies.get(k)  c.alive(source)  c.app.create_task(coro)
 db.query(sql, Row, **p) -> list   db.one(...) -> Row | None   db.value(sql, **p)   await db.write(fn, *a)
+tx.execute(sql, **p)  tx.query  tx.one  tx.value   # in fn(tx, ...): UPDATE, DELETE
 data.on("click", expr, prevent=True, debounce="300ms")  # a bare number is seconds
 data.attr("disabled", "$_saving")  data.indicator("_saving")  data.class_("on", expr)
 data.ref("_dialog")  data.preserve_attr("open")  data.ignore_morph()  at.delete(url)

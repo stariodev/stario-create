@@ -1,6 +1,6 @@
 ---
 name: stario-api
-description: Stario server names beyond AGENTS.md - settings, cookies, forms and uploads, static files that keep their name, error pages, redirects, middleware. Use when AGENTS.md lacks a server name or pyrefly rejects one. Not for h.*, data.*, at.*.
+description: Stario server names beyond AGENTS.md - settings, cookies, forms and uploads, static files that keep their name, error pages, redirects, middleware. Use when AGENTS.md lacks a server name or pyrefly rejects one.
 ---
 
 # The Stario API, server side
