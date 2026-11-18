@@ -1,17 +1,17 @@
 <!-- BEGIN stario-create -->
 # Stario app guide
 
-A Stario app is Python 3.14: the server renders pages from `h.*` tags, Datastar (`data.*`, `at.*`)
-sends commands and keeps pages live over SSE, and litewriter holds the data in SQLite (stario 5.8,
-litewriter 0.3). The names you need are here or in a skill: never read `site-packages`.
+A Stario app is Python 3.14: the server renders `h.*` tags, Datastar (`data.*`, `at.*`) sends
+commands and keeps pages live over SSE, litewriter keeps SQLite (stario 5.8, litewriter 0.3).
+The names are here or in a skill: never read `site-packages`.
 
 ## The loop
 
 1. Start in one command, kits included (a kit replaces only files still equal to the scaffold):
    `uvx stario-create@latest new app --db && cd app && uvx stario-create@latest add auth --password`.
    Kits: `add auth --password` (email and password), `add auth` (Google, GitHub), `add tailwind`
-   (Tailwind and DaisyUI, no Node). `new` prints the files you change: do not open them again.
-2. Read the task's spec and tests, several files per command. Plan every route.
+   (Tailwind, DaisyUI, no Node). `new` prints the files you change: do not open them.
+2. Read the spec and tests, several files per command. Plan every route.
 3. Write `app/urls.py` (every route), `app/data.py` (tables, rows, SQL), `app/layout.py`
    (shared markup), `app/pages/<area>.py` (several pages per module), then `app/main.py` (one
    register line per page class). Send several files per message. Import what a file uses;
@@ -23,7 +23,7 @@ litewriter 0.3). The names you need are here or in a skill: never read `site-pac
    -d username=a GET /bookmarks` (`-d` a form field, `-j JSON` a Datastar action, `-s JSON` signals
    on a GET).
 6. An acceptance suite (`npm test`): run it in the foreground with the Bash tool's timeout
-   (600000), never in the background; fix and rerun. When it passes, stop: no screenshots, no own
+   (600000), never in the background. Fix, rerun. When it passes, stop: no screenshots, no own
    tests. No suite: write TestClient tests (skill `stario-tests`).
 
 Shell: macOS has no `timeout` command; `sed -i ''`. Stop a server from an earlier call by port:
@@ -31,8 +31,9 @@ Shell: macOS has no `timeout` command; `sed -i ''`. Stop a server from an earlie
 listens on `STARIO_HOST:STARIO_PORT` (127.0.0.1:8000); a runner that sets `PORT` needs
 `STARIO_PORT=$PORT`. `DATABASE_PATH`, when set, is the SQLite file.
 
-Changing an app that holds data: read `app/urls.py`, `app/data.py` and the pages you change first.
-A table with rows changes as skill `stario-migrate` shows, never by drop and create.
+Changing an app that holds data: read `app/urls.py`, `app/data.py` and the pages to change first.
+A new column on a table with rows: skill `stario-migrate` (never drop and create). A new table
+is one more `CREATE TABLE IF NOT EXISTS`.
 
 ## A page: list, search, paging, live stream, a command
 
@@ -201,7 +202,7 @@ rewrites it (a second `GET /` raises).
 - Data: `db.one(sql, Row, **p)` is a row or None; `db.value` raises `QueryError` on no row. In a write:
   `tx.execute`, `tx.value`, `tx.one`, `tx.query`. A taken unique value raises `apsw.ConstraintError`.
 - Static: `ASSETS.href("css/x.css")` renames to `x.<hash>.css`. A URL that must keep its file name
-  (a default avatar a test expects): `MEDIA = Files(ASSETS.directory / "media", "/media")` in
+  (a default avatar): `MEDIA = Files(ASSETS.directory / "media", "/media")` in
   `app/layout.py`, `await MEDIA.attach(app)` in bootstrap, `MEDIA.href("avatar.svg")`.
 - `set_cookie(w, "k", value, max_age=86400)` (`stario.cookies`). `from stario.json import dumps,
   loads`; `loads` returns `object`: `cast(list[str], loads(s))`.
@@ -233,7 +234,7 @@ Protect a prefix in `app/main.py`: `app.use("/settings", session.require)`. In a
 
 ## Skills
 
-Load one only when the task needs it: `stario-tests` (TestClient tests, when no acceptance suite),
+Load one only when a task needs it: `stario-tests` (TestClient tests, when no acceptance suite),
 `stario-migrate` (tables that already hold rows), `stario-outside-api` (another service over HTTP),
 `stario-js` (any JavaScript file), `stario-background` (state in memory, slow jobs, timers),
 `stario-accounts` (past the kit: Google setup, roles, tokens), `stario-reference` (a name this
@@ -243,4 +244,4 @@ file lacks or pyrefly rejects).
 
 ## This app
 
-Notes for this app go here, under 4 KB. `sync` keeps this section.
+Notes for this app, under 4 KB. `sync` keeps this section.

@@ -1,6 +1,6 @@
 ---
 name: stario-migrate
-description: Change SQLite tables that already hold rows in a Stario app - add a column and fill the old rows, a new table beside old data, an index, rebuild a table, a test on an old database. Use when the database already has data (in use, an upgrade). Not for the tables of a new app.
+description: Change SQLite tables that already hold rows in a Stario app - add a column and fill old rows, rename or retype one, an index, a test on an old database. Use when a table with rows gets a new or changed column (an app in use, an upgrade). Not for new tables, which CREATE TABLE IF NOT EXISTS makes.
 ---
 
 # Change tables that hold rows
