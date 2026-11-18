@@ -179,6 +179,9 @@ def test_guide_states_the_facts_that_cost_runs():
         "DATABASE_PATH",
         "lsof -ti tcp:8000",  # kill $! does not reach an earlier call's job
         "keep the route names",  # the login kit's tests survive a rewrite
+        "[*tags]",  # a list[str] variable in data.signals is refused (3 of 4 conduit runs, 6.0)
+        "no server call",  # tags being typed stay in the tab (both 6.0 Haiku conduit runs raced)
+        "STARIO_HOST=0.0.0.0",  # a host's PORT needs every interface
     ):
         assert fact in text, fact
 

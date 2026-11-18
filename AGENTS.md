@@ -7,29 +7,29 @@ The names are here or in a skill: never read `site-packages`.
 
 ## The loop
 
-1. Start in one command, kits included (a kit replaces only files still equal to the scaffold):
-   `uvx stario-create@latest new app --db && cd app && uvx stario-create@latest add auth --password`.
+1. Start in one command with the kits the task needs (a kit replaces only files still equal to
+   the scaffold): `uvx stario-create@latest new app --db && cd app && uvx stario-create@latest add auth --password`.
    Kits: `add auth --password` (email and password), `add auth` (Google, GitHub), `add tailwind`
-   (Tailwind, DaisyUI, no Node). `new` prints the files you change: do not open them.
-2. Read the spec and tests, several files per command. Plan every route.
+   (DaisyUI, no Node). `new` prints the files you change: do not open them.
+2. Read the spec and tests, many files per command.
 3. Write `app/urls.py` (every route), `app/data.py` (tables, rows, SQL), `app/layout.py`
-   (shared markup), `app/pages/<area>.py` (several pages per module), then `app/main.py` (one
-   register line per page class). Send several files per message. Import what a file uses;
-   do not tidy imports or unused names by hand: `check` sorts and drops them.
-4. `uvx stario-create@latest check`: format, lint, types, the page check, the tests. Each problem
-   names its fix. Repeat until `check: ok`.
+   (shared markup), `app/pages/<area>.py` (a module per area), then `app/main.py` (one
+   register line per page class). Import what a file uses; do not tidy imports or unused names
+   by hand: `check` sorts and drops them.
+4. `uvx stario-create@latest check` (lint, types, tests): each problem names its fix. Repeat
+   until `check: ok`.
 5. See a page with no server: `uvx stario-create@latest request GET /bookmarks`. Each call starts
    on an empty database, so chain steps: `request POST /signup -d email=a@b.co -d password=12345678
    -d username=a GET /bookmarks` (`-d` a form field, `-j JSON` a Datastar action, `-s JSON` signals
    on a GET).
 6. An acceptance suite (`npm test`): run it in the foreground with the Bash tool's timeout
-   (600000), never in the background. Fix, rerun. When it passes, stop: no screenshots, no own
-   tests. No suite: write TestClient tests (skill `stario-tests`).
+   (600000), never in the background. When it passes, stop: no screenshots, no own tests. No
+   suite: write TestClient tests (skill `stario-tests`).
 
-Shell: macOS has no `timeout` command; `sed -i ''`. Stop a server from an earlier call by port:
-`lsof -ti tcp:8000 | xargs kill`, never `pkill -f` (it stops other apps). `python -m app.main`
-listens on `STARIO_HOST:STARIO_PORT` (127.0.0.1:8000); for a runner's `PORT`, set
-`STARIO_PORT=$PORT`. `Config` already reads `DATABASE_PATH` (the SQLite file).
+Shell: macOS has no `timeout`; `sed -i ''`. Stop a server of an earlier call by its port:
+`lsof -ti tcp:8000 | xargs kill`, never `pkill -f` (it stops other apps). The app listens on
+127.0.0.1:8000; a host's `PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT`. `Config` already
+reads `DATABASE_PATH`.
 
 Changing an app that holds data: read `app/urls.py`, `app/data.py` and the pages to change first.
 A new column on a table with rows: skill `stario-migrate` (never drop and create). A new table
@@ -70,7 +70,7 @@ class Bookmark:
 
 # A stream repaints when this result changes: it changes with every write the page shows.
 CHANGES = "SELECT count(*), max(id) FROM bookmarks"
-_MATCH = "instr(lower(title), lower(:q)) > 0"  # literal search: % and _ match themselves
+_MATCH = "instr(lower(title), lower(:q)) > 0"
 
 
 def list_bookmarks(db: LiteWriter, q: str, page: int) -> tuple[list[Bookmark], int]:
@@ -112,7 +112,7 @@ class BookmarksPage:
         app.add(ADD_BOOKMARK, self.add)
 
     def listing(self, c: Context) -> HtmlElement:
-        """The live part, read from the URL query: the page and its stream send this element."""
+        """The live part, from the URL query: the page and the stream send it."""
         q, raw = c.req.query.get("q", "").strip(), c.req.query.get("page", "1")
         n = int(raw) if raw.isdecimal() and raw != "0" else 1
         return render_list(q, n, *list_bookmarks(self.db, q, n))
@@ -183,7 +183,8 @@ rewrites it (a second `GET /` raises).
 ## Names
 
 - Every HTML tag is `h.<Name>`. Attribute dicts, `classes(...)` and `data.*` come before the
-  children (text, tags, `None`, `*list`). A list of nodes in a variable is `list[HtmlElement]`.
+  children (text, tags, `None`, `*list`). A list of nodes in a variable is `list[HtmlElement]`;
+  a `list[str]` in `data.signals` is spread, `{"tags": [*tags]}`.
   `SafeString(html)` is for trusted HTML only.
 - Request: `c.req.query.get("q", "")`, `.getlist("tag")`, `c.match.params["slug"]` (a `str`),
   `c.req.cookies.get("k")`, `c.req.headers.get("k")`.
@@ -199,8 +200,10 @@ rewrites it (a second `GET /` raises).
 - A row's button: `data.on("click", at.post(DONE.href(item.id)))`; a missing or another user's
   row answers 404. Search as you type: an input with `data.bind("q")` and `data.on("input",
   at.get(RESULTS.href()), debounce="300ms")`; that handler reads `read_signals` and patches.
-- Data: `db.one(sql, Row, **p)` is a row or None; `db.value` raises `QueryError` on no row. In a write:
-  `tx.execute`, `tx.value`, `tx.one`, `tx.query`. A taken unique value raises `apsw.ConstraintError`.
+- What only this tab needs before a submit (tags being typed, an open panel) is a signal set in
+  an expression, `$tags = [...$tags, $tag]`, no server call; the submit sends it.
+- Data: `db.one(sql, Row, **p)` is a row or None; `db.value` raises `QueryError` on no row;
+  `db.watch(sql, Row, **p)`. In a write: `tx.execute`, `tx.value`, `tx.one`, `tx.query`. A taken unique value raises `apsw.ConstraintError`.
 - Static: `ASSETS.href("css/x.css")` renames to `x.<hash>.css`. A URL that must keep its file name
   (a default avatar): `MEDIA = Files(ASSETS.directory / "media", "/media")` in
   `app/layout.py`, `await MEDIA.attach(app)` in bootstrap, `MEDIA.href("avatar.svg")`.
@@ -212,8 +215,8 @@ rewrites it (a second `GET /` raises).
 ## Rules that bite
 
 - `page()` in `app/layout.py` is `@baked`: it runs once at import with placeholders, so an `if`,
-  `==`, f-string or loop on its parameters raises. Compute first. A per-request part (a signed-in
-  header) is a new parameter that every caller passes.
+  `==`, f-string or loop on its parameters raises. A per-request part (a signed-in header) is a
+  new parameter that every caller passes.
 - A write function (`fn(tx, ...)`) makes no network call and hashes no password: do that first,
   slow work through `await asyncio.to_thread(...)`.
 - `watch` wakes on a commit to a table it reads and yields only when its result changes. Watch
@@ -221,7 +224,7 @@ rewrites it (a second `GET /` raises).
 - `ORDER BY` takes no parameter: pick the SQL text from a dict, `SORTS = {"new": "id DESC"}`.
 - A Datastar action follows no redirect: `SSE(w).navigate(url)`. A duration is a string, `"300ms"`.
 - Do not read or edit the generated `tests/test_pages.py`, `_pagecheck.py`, `_lint.py`,
-  `test_js.py`: the page check opens every page and stream and names what is wrong.
+  `test_js.py`: their failures name the fix.
 
 ## Accounts
 
