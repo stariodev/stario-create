@@ -101,3 +101,14 @@ and no code pattern was touched:
 Three `decide.jsonl` cases encode 5.x answers this kit changes on purpose: `d-page-file` expects
 `add page`, `d-stop-server` expects `kill $!` (the brief says it fails across tool calls), and
 `d-env-setting` expects the agent to add the `database_path` field that the scaffold now has.
+
+## Probe sanity (2026-11-18, not a comparison)
+
+- `route.jsonl`, Haiku 5.5: all 20 cases, 1–2 runs each: 37/38 pass; every expected load
+  happened except one of two `navbar-count` runs (the description now names the navbar count).
+  Wasted loads fell after the `stario-migrate` description stopped matching new tables.
+- `route.jsonl`, Sonnet 5.5: 5 cases, 5/5.
+- `decide.jsonl`, Haiku 5.5, one run: 21/27. The misses are the three 5.x answers above,
+  `d-taken-email` (the kit's plain-form answer, 422, where the case expects a Datastar `_error`),
+  a placeholder file name in `d-js-place` (2/2 on rerun), and `d-stream-row-gone` (now in
+  `stario-reference`; 1/2 on rerun).
