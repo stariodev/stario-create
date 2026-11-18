@@ -145,7 +145,7 @@ def test_guide_is_the_loop_and_names_the_tools_that_replace_rules():
         "timeout",
         "acceptance suite",
         "foreground",
-        "Leave imports",
+        "`check` sorts and drops them",
     ):
         assert name in text, name
     assert "Read both once" not in text

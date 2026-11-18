@@ -14,7 +14,8 @@ litewriter 0.3). The names you need are here or in a skill: never read `site-pac
 2. Read the task's spec and tests, several files per command. Plan every route.
 3. Write `app/urls.py` (every route), `app/data.py` (tables, rows, SQL), `app/layout.py`
    (shared markup), `app/pages/<area>.py` (several pages per module), then `app/main.py` (one
-   register line per page class). Send several files per message. Leave imports to `check`.
+   register line per page class). Send several files per message. Import what a file uses;
+   do not tidy imports or unused names by hand: `check` sorts and drops them.
 4. `uvx stario-create@latest check`: format, lint, types, the page check, the tests. Each problem
    names its fix. Repeat until `check: ok`.
 5. See a page with no server: `uvx stario-create@latest request GET /bookmarks`. Each call starts
