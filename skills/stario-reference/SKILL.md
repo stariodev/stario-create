@@ -1,6 +1,6 @@
 ---
 name: stario-reference
-description: Stario, Datastar and litewriter names past AGENTS.md - more data.* and at.* options, SSE morph modes, dialogs, infinite scroll, a live header badge, uploads, signed cookies, middleware, error pages, server settings, JSON endpoints. Use when AGENTS.md lacks a name or pyrefly rejects one.
+description: Stario, Datastar and litewriter names past AGENTS.md - more data.* and at.* options, SSE morph modes, dialogs, infinite scroll, a live navbar count, uploads, signed cookies, middleware, error pages, server settings, JSON endpoints. Use when AGENTS.md lacks a name or pyrefly rejects one.
 ---
 
 # Reference
@@ -76,7 +76,7 @@ Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
   `h.Li({"id": "more"}, data.on_intersect(at.get(MORE.href(query={"page": n + 1})), once=True))`;
   the handler answers `sse.patch_elements(items, mode="append", selector="#list")` and then
   `sse.patch_elements(...)` with the next sentinel, or `sse.remove("#more")` at the end.
-- A live badge on every page (a header count): the header holds
+- A live count in the navbar on every page (a header badge): the header holds
   `h.Span({"id": "badge"}, data.init(at.get(BADGE_LIVE.href())), str(n))`. Its stream is not behind
   `session.require`: signed out, it patches the empty badge and returns; signed in, it watches
   `SELECT count(*) FROM alerts WHERE user_id = :u AND seen = 0` and patches the whole span each
