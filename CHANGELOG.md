@@ -4,6 +4,46 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 6.0.0.dev1
+
+A kit written from scratch from the benchmark's brief (stario-agent-bench
+`notes/kit-learnings.md`), not a nudge of 5.16. `DESIGN.md` says what is always on, what is in
+a skill, and why.
+
+### Changed
+
+- `AGENTS.md`, rewritten (11.9 KB): the build loop in six steps (kits in the first command,
+  `check`, `request`, the suite in the foreground, stop when green), one complete page (search
+  and paging from the URL query, a live stream on `db.watch`, a Datastar command, a GET form),
+  one-line names, the rules that raise or misbehave, accounts through the kit, and one paragraph
+  that routes a task to one skill.
+- Seven skills replace twelve, split by task so a task loads one skill or none and no skill
+  sends the agent to another: `stario-tests`, `stario-migrate`, `stario-outside-api`,
+  `stario-js`, `stario-background`, `stario-accounts`, `stario-reference`. No skill has
+  references.
+- `add auth --password`: the login and sign-up pages are plain HTML forms (errors answer 422
+  with the form again; success redirects 303), and `tests/test_login.py` checks behaviour, not
+  wording. A spec with its own paths, labels or markup changes the page and keeps the tests.
+- Logout of the password kit goes to `/`.
+- `Config` in the scaffold and both auth kits reads `DATABASE_PATH` (`database_path`); `db_path`
+  uses it when set. `tests/conftest.py` and `request` clear it.
+- `new` ends with the loop's next steps (a kit first, then the files, then `check`).
+- The `pkill` lint message says to stop a server by its port (`kill $!` does not reach a job of
+  an earlier shell).
+- The tailwind kit's `next:` lines say how to rebuild, write classes and add a theme switch.
+
+### Added
+
+- Lint rules `redirect-status` (`w.redirect(url)` answers 307, which repeats a POST),
+  `classes-in-dict`, and `order-by-param`.
+- `sync` removes the skill folders of the retired 5.x skills; `sync --check` reports them.
+
+### Removed
+
+- Skills `stario-api`, `stario-auth`, `stario-browser-check`, `stario-client`,
+  `stario-datastar`, `stario-feature`, `stario-jobs`, `stario-litewriter`, `stario-relay`,
+  `stario-tailwind-daisyui`, `stario-view`, and every `references/` file.
+
 ## 5.16.0
 
 From two reviews of 5.15.0: an Opus read of the guide and every skill against

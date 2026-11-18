@@ -37,7 +37,7 @@ A kit is a set of tested files. Run it at the app root:
 ```bash
 stario-create add            # list the kits
 stario-create add auth       # sign-in with Google and GitHub; session; tests
-stario-create add auth --password   # sign-up and sign-in with an email and a password
+stario-create add auth --password   # sign-up and sign-in with an email and a password (plain forms)
 stario-create add tailwind   # Tailwind v4 and DaisyUI recipes, input.css, shell, theme switch
 stario-create add browser    # scripts/browser.py, the rare Playwright check
 stario-create add pages      # tests/test_pages.py and its generated files, for an older app
@@ -59,7 +59,7 @@ stario-create request POST /todos -j '{"title": "milk"}' GET /todos   # one clie
 
 `request` runs in the app's own venv on a fresh data dir, reads `.env`, and starts no server. `-j` sends a Datastar action (JSON signals), `-s` sends signals on a GET, `-d k=v` a plain form field, `-H k:v` a header.
 
-The lint rules: `attrs-after-children`, `time-unit` (`debounce=300` is 300 seconds), `module-state`, `env-outside-config`, `redirect-after-signals`, `datastar-import`, `json-module`, `bare-task`, `sleep-loop`, `pkill`. `# stario: ok` on a line skips it.
+The lint rules: `attrs-after-children`, `classes-in-dict`, `time-unit` (`debounce=300` is 300 seconds), `redirect-status` (`w.redirect(url)` answers 307, which repeats a POST), `redirect-after-signals`, `order-by-param`, `module-state`, `env-outside-config`, `datastar-import`, `json-module`, `bare-task`, `sleep-loop`, `pkill`. `# stario: ok` on a line skips it.
 
 ## Syncing an app
 
@@ -108,20 +108,19 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 | Skill | Use it when |
 | --- | --- |
-| `stario-api` | Stario server names beyond AGENTS.md - settings, cookies, forms and uploads, static files that keep their name, error pages, redirects, middleware. Use when AGENTS.md lacks a server name or pyrefly rejects one. |
-| `stario-auth` | Accounts in a Stario app - password sign-up and sign-in (add auth --password), Google or GitHub sign-in (add auth), logout, protected pages, rows per user, API tokens. Use for any login or permission need. |
-| `stario-browser-check` | Load before a browser, a screenshot, Playwright, or computer use on a Stario app - the test that answers each question without a browser, and the two cases where a browser is right. Not for the task's own acceptance suite. |
-| `stario-client` | JavaScript in a Stario app - where it goes and how Python calls it. Use before any script, addEventListener, long data.on expression, drag, picker, or clipboard. Not for what a GET or a data.* attribute does. |
-| `stario-datastar` | Every Stario page-side option - h.* tags and node types, @baked, trusted HTML and Markdown, data.* attributes, at.* actions, SSE methods, morphs. Use when AGENTS.md lacks one or pyrefly rejects a node. |
-| `stario-feature` | Tests for a Stario page (TestClient calls, a stream, two tabs, bad input) and page extras - go to the page a command made, a live navbar count, several tables, removing a page. Use when writing tests or one of these. |
-| `stario-jobs` | Slow work in a Stario app (a report, a model call, an import) as a job with live progress and clean shutdown, and a loop on a timer. Use when a command starts work that takes seconds, or work runs on a schedule. |
-| `stario-litewriter` | Change a SQLite table that already holds rows - a new column with its old rows filled, indexes, JSON columns, how watch wakes. Use when a filled database changes shape or a watch does not repaint. Not for a new table (AGENTS.md). |
-| `stario-outside-api` | Call an outside HTTP API from a Stario app - an httpx client opened in bootstrap, a cache, a 404 page, tests that fake the API. Use when pages read data from another service over HTTP. |
-| `stario-relay` | A live Stario page on state in memory (Relay), a message to one tab, an edit dialog that keeps what the user typed. Use when state is in memory, or any page needs an edit dialog or a message to one tab. |
-| `stario-tailwind-daisyui` | Tailwind CSS v4 and DaisyUI for a Stario app (stario-create add tailwind, no Node), with a light and dark theme. Use when the app is styled with Tailwind or DaisyUI. |
-| `stario-view` | Sort, filter, or page a Stario list through the URL query, and search as you type that patches one part. Use when a list gets sort links, filters, paging, or a search box. |
+| `stario-accounts` | Accounts past the add auth kits in a Stario app - Google or GitHub sign-in setup, a signed-in header, rows each user owns, profiles and settings, password change, roles and admin pages, API tokens. Use when the task goes past sign-up, sign-in and protected pages (AGENTS.md has those). |
+| `stario-background` | State and work outside SQLite in a Stario app - a live page on state in memory (Relay), slow work with live progress (an export, an import, a model call), a timer loop, a message to one tab, clean shutdown. Use when state is not in the database or work outlasts the request. |
+| `stario-js` | JavaScript in a Stario app - a static/js file per behaviour, app.name functions called from data.on, clipboard, drag, charts, editors, keyboard input; the browser check for JS that holds state. Use before writing any script or addEventListener. Not for what data.* attributes already do. |
+| `stario-migrate` | Change SQLite tables that already hold rows in a Stario app - add a column and fill the old rows, a new table beside old data, an index, rebuild a table, a test on an old database. Use when the database already has data (in use, an upgrade). Not for the tables of a new app. |
+| `stario-outside-api` | Call an outside HTTP API from a Stario app - an httpx client opened in bootstrap, typed results, a cache, a 404 or 502 page when the service fails, offline tests with httpx.MockTransport. Use when pages read data from another service over HTTP. |
+| `stario-reference` | Stario, Datastar and litewriter names past AGENTS.md - more data.* and at.* options, SSE morph modes, dialogs, infinite scroll, a live header badge, uploads, signed cookies, middleware, error pages, server settings, JSON endpoints. Use when AGENTS.md lacks a name or pyrefly rejects one. |
+| `stario-tests` | TestClient tests for a Stario app - pages, Datastar commands, plain forms, live streams in two tabs, sign-in, bad input. Use when the task asks for tests or ships no acceptance suite. Not when the task ships its own suite (npm test, Playwright). |
 
-Each `SKILL.md` holds the common path in about 1k tokens; rare depth sits in `references/`, which the skill names.
+Each skill is one `SKILL.md` that holds one task's path, so a task loads one skill or none. The
+guide routes to them; no skill sends the agent on to another. `stario-tailwind-daisyui`,
+`stario-browser-check`, `stario-view`, `stario-feature`, `stario-datastar`, `stario-api`,
+`stario-relay` and `stario-jobs` of 5.x are gone: their common parts are in `AGENTS.md`, the
+rest in the seven skills above, and `sync` removes the old folders.
 
 `npx skills add stariodev/stario-create` also works — it reads the `skills/` tree at this repo root.
 
@@ -135,4 +134,4 @@ Each `SKILL.md` holds the common path in about 1k tokens; rare depth sits in `re
 
 ## Changing the guide
 
-The guide is checked against real code: `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there and run its tests. A snippet in `AGENTS.md` or a skill must run as written: `tests/test_examples.py` builds a scaffolded app from each file's blocks (a block that starts with `# app/<file>.py` is that file; any other block runs inside a handler-shaped function) and runs pyrefly and the Stario lint on it. Size budgets hold the guide at 12 KB, the guide plus every skill description at 14.3 KB, each `SKILL.md` at 8 KB, and each reference at 6 KB. Before you change a pattern, build it in a scaffolded app and run `just check` there; then copy the passing code into the skill. Screen a change with the probes in `evals/` (routing on Haiku and Sonnet, decisions on Opus, a few cents a case), then with stario-agent-bench before a release.
+The guide is checked against real code: `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there and run its tests. A snippet in `AGENTS.md` or a skill must run as written: `tests/test_examples.py` builds a scaffolded app from each file's blocks (a block that starts with `# app/<file>.py` is that file; any other block runs inside a handler-shaped function) and runs pyrefly and the Stario lint on it. Size budgets hold the guide at 12 KB (so 4 KB of app notes fit under the 16 KB rule-loader cut), the guide plus every skill description at 14.3 KB, each description at 300 characters, and each `SKILL.md` at 8 KB. `DESIGN.md` says what is always on, what is in a skill, and why. Before you change a pattern, build it in a scaffolded app and run `just check` there; then copy the passing code into the skill. Screen a change with the probes in `evals/` (routing on Haiku and Sonnet, decisions on Opus, a few cents a case), then with stario-agent-bench before a release.
