@@ -112,3 +112,12 @@ Three `decide.jsonl` cases encode 5.x answers this kit changes on purpose: `d-pa
   `d-taken-email` (the kit's plain-form answer, 422, where the case expects a Datastar `_error`),
   a placeholder file name in `d-js-place` (2/2 on rerun), and `d-stream-row-gone` (now in
   `stario-reference`; 1/2 on rerun).
+
+## 6.0.0.dev2: reconciled with 5.16
+
+Probes and a bench screen of both kits (stario-agent-bench `notes/kit-reconcile.md`) kept 6.0's
+seven skills, tools and guide shape: fewer wasted skill loads at the same pass rates, and fewer
+steps on Conduit with Sonnet. From 5.16 and the screen's transcripts came four guide lines (list
+signals are spread, tab-only state stays in signals, `db.watch` with parameters, a host's
+`PORT`), the first command without an unconditional `add auth --password`, and a password kit
+whose tests read the session cookie instead of the `/app` prefix that specs drop.

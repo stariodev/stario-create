@@ -4,6 +4,27 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 6.0.0.dev2
+
+The 6.0 kit (`kit-fresh`) reconciled with 5.16 (`kit-r3`) after probes and a bench screen of
+both (stario-agent-bench `notes/kit-reconcile.md`). The seven skills, the tools and the guide's
+shape are 6.0's; the changes below come from the screen's transcripts and from 5.16.
+
+### Changed
+
+- `AGENTS.md`: the first command adds the kits the task needs (it read as if every app
+  needed `add auth --password`); a `list[str]` in `data.signals` is spread, `{"tags": [*tags]}`
+  (5.16 had it in `stario-datastar`; 3 of 4 screened Conduit runs probed for it); state that only
+  the tab needs before a submit is a signal set in an expression, not a server call (both Haiku
+  Conduit runs raced the suite with a server round trip per tag); `db.watch` with parameters;
+  `STARIO_HOST=0.0.0.0` for a host's `PORT` (from 5.16). Prose rules no run obeyed ("send
+  several files per message") are gone; the guide stays under 12 KB.
+- `add auth --password`: `tests/test_login.py` reads the signed-in state from the session cookie,
+  so an app that drops the kit's `app.use("/app", session.require)` keeps passing tests (the
+  redirect test skips).
+- Probe cases: `d-page-file`, `d-stop-server`, `d-taken-email` and `d-env-setting` expect the
+  6.0 answers.
+
 ## 6.0.0.dev1
 
 A kit written from scratch from the benchmark's brief (stario-agent-bench
