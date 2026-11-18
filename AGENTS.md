@@ -28,8 +28,8 @@ The names are here or in a skill: never read `site-packages`.
 
 Shell: macOS has no `timeout` command; `sed -i ''`. Stop a server from an earlier call by port:
 `lsof -ti tcp:8000 | xargs kill`, never `pkill -f` (it stops other apps). `python -m app.main`
-listens on `STARIO_HOST:STARIO_PORT` (127.0.0.1:8000); a runner that sets `PORT` needs
-`STARIO_PORT=$PORT`. `DATABASE_PATH`, when set, is the SQLite file.
+listens on `STARIO_HOST:STARIO_PORT` (127.0.0.1:8000); for a runner's `PORT`, set
+`STARIO_PORT=$PORT`. `Config` already reads `DATABASE_PATH` (the SQLite file).
 
 Changing an app that holds data: read `app/urls.py`, `app/data.py` and the pages to change first.
 A new column on a table with rows: skill `stario-migrate` (never drop and create). A new table
@@ -206,8 +206,8 @@ rewrites it (a second `GET /` raises).
   `app/layout.py`, `await MEDIA.attach(app)` in bootstrap, `MEDIA.href("avatar.svg")`.
 - `set_cookie(w, "k", value, max_age=86400)` (`stario.cookies`). `from stario.json import dumps,
   loads`; `loads` returns `object`: `cast(list[str], loads(s))`.
-- A setting is a `Config` field with a default in `app/config.py` (`site_url` reads `SITE_URL`),
-  built in bootstrap and passed to page classes. State lives in those objects, not in modules.
+- A setting is one field with a default in `Config` (`site_url: str = ""` reads `SITE_URL`;
+  no `os.environ`), passed from bootstrap to page classes. State lives in objects, not modules.
 
 ## Rules that bite
 

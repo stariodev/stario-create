@@ -83,6 +83,9 @@ Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
   time. Build the badge in the page handler too (`page()` takes the header as a parameter).
   Pages with their own stream keep it: one element, one stream.
 
+- A stream whose row was deleted meanwhile (its read returns None) returns: the tab keeps what
+  it shows until the next load. A stream never navigates.
+
 ## Server
 
 - `Route("GET //{sub}.example.com/")` routes by host. `Route("POST", BASE + "/send")` joins.
