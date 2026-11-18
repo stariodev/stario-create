@@ -105,13 +105,33 @@ def test_lint_redirect_after_signals():
     assert rules(handler.replace("read_signals", "read_form")) == []
 
 
+def test_lint_redirect_needs_a_status():
+    found = lint_source('async def f(c, w):\n    w.redirect("/")\n', "app/pages/x.py")
+    assert [f.rule for f in found] == ["redirect-status"]
+    assert "w.redirect(url, 303)" in found[0].message
+    assert rules('w.redirect("/", 303)\nw.redirect("/", status=302)') == []
+    assert rules('raise RedirectException(303, "/")') == []
+
+
+def test_lint_classes_in_a_dict():
+    found = lint_source('h.Div({"class": classes("a", {"b": x})}, "t")', "app/pages/x.py")
+    assert [f.rule for f in found] == ["classes-in-dict"]
+    assert rules('h.Div(classes("a", {"b": x}), {"id": "y"}, "t")') == []
+
+
+def test_lint_order_by_parameter():
+    assert rules('db.query("SELECT id FROM t ORDER BY :sort", sort=s)') == ["order-by-param"]
+    assert rules('q = f"SELECT id FROM t WHERE a = :a order by  :col DESC"') == ["order-by-param"]
+    assert rules('db.query(f"SELECT id FROM t ORDER BY {SORTS[s]} LIMIT :n", n=1)') == []
+
+
 def test_lint_pkill_anywhere_and_the_skip_comment(tmp_path: Path):
     (tmp_path / "app").mkdir()
     (tmp_path / "app/a.py").write_text("CACHE = {}  # stario: ok\nX = []\n")
     (tmp_path / "justfile").write_text("stop:\n    pkill -f app.main\n")
     found = [(f.path, f.line, f.rule) for f in lint(tmp_path)]
     assert found == [("app/a.py", 2, "module-state"), ("justfile", 2, "pkill")]
-    assert "kill $!" in lint(tmp_path)[1].message
+    assert "lsof -ti tcp:PORT" in lint(tmp_path)[1].message
 
 
 def test_lint_outside_app_checks_only_pkill():
@@ -337,13 +357,28 @@ def test_sync_copies_references_and_removes_old_ones(tmp_path: Path):
     for name in skill_names():
         for rel in skill_files(name):
             assert (tmp_path / ".agents/skills" / name / rel).is_file(), rel
-    named = next(n for n in skill_names() if len(skill_files(n)) > 1)
+    named = skill_names()[0]  # a reference the kit no longer ships is removed
     old = tmp_path / ".agents/skills" / named / "references/gone.md"
+    old.parent.mkdir(exist_ok=True)
     old.write_text("old")
     written = sync_skill_files(tmp_path)
     assert not old.exists()
     assert f"removed .agents/skills/{named}/references/gone.md" in written
     assert not [s for s in stale_files(tmp_path) if s.startswith(".agents")]
+
+
+def test_sync_removes_the_skills_of_an_older_kit(tmp_path: Path):
+    old = tmp_path / ".agents/skills/stario-feature"
+    old.mkdir(parents=True)
+    (old / "SKILL.md").write_text("old")
+    link = tmp_path / ".claude/skills/stario-feature"
+    link.parent.mkdir(parents=True)
+    link.symlink_to("../../.agents/skills/stario-feature")
+    assert ".agents/skills/stario-feature (retired)" in stale_files(tmp_path)
+    written = sync_skill_files(tmp_path)
+    assert "removed .agents/skills/stario-feature" in written
+    assert not old.exists()
+    assert not link.is_symlink()
 
 
 def test_claude_md_imports_the_guide_and_keeps_its_own_text(tmp_path: Path):

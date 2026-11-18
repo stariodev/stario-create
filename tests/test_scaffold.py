@@ -255,11 +255,11 @@ def test_cli_sync_check(tmp_path: Path):
 
 def test_cli_sync_check_detects_stale_skill(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
-    skill_md = tmp_path / ".agents/skills/stario-feature/SKILL.md"
+    skill_md = tmp_path / ".agents/skills/stario-tests/SKILL.md"
     skill_md.write_text(skill_md.read_text() + "\nextra\n")
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
-    assert ".agents/skills/stario-feature/SKILL.md" in out.stdout
+    assert ".agents/skills/stario-tests/SKILL.md" in out.stdout
 
 
 def test_cli_sync_check_flags_a_guide_over_the_rule_limit(tmp_path: Path):
@@ -322,10 +322,10 @@ def test_cli_sync_check_detects_missing_cloud_env(tmp_path: Path):
 
 def test_cli_sync_check_detects_missing_link(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
-    (tmp_path / ".claude/skills/stario-auth").unlink()
+    (tmp_path / ".claude/skills/stario-accounts").unlink()
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
-    assert ".claude/skills/stario-auth" in out.stdout
+    assert ".claude/skills/stario-accounts" in out.stdout
 
 
 def test_cli_sync_api_profile(tmp_path: Path):

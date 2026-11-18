@@ -154,6 +154,7 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory() as data:
         # A fresh data dir: the app's own database (and a dev server's claim) stays untouched.
         os.environ["PROJECT_DATA_DIR"] = data
+        os.environ.pop("DATABASE_PATH", None)
         bootstrap = importlib.import_module("app.main").bootstrap
         lines, ok = asyncio.run(run(bootstrap, steps))
     print("\n".join(lines))

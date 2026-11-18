@@ -41,6 +41,20 @@ GENERATED_TESTS = {
     "tests/_pagecheck.py": "templates/tests/_pagecheck.py",
     "tests/_lint.py": "lint.py",
 }
+# Skills of earlier kits: `sync` removes them, so an app does not keep two guides to one topic.
+RETIRED_SKILLS = (
+    "stario-api",
+    "stario-auth",
+    "stario-browser-check",
+    "stario-client",
+    "stario-datastar",
+    "stario-feature",
+    "stario-jobs",
+    "stario-litewriter",
+    "stario-relay",
+    "stario-tailwind-daisyui",
+    "stario-view",
+)
 _RULE_LIMIT = 16_000  # Devin and others cut an always-on rule file here
 _NOTES_LIMIT = 4_000  # the `## This app` notes; past this, move a topic to its own file
 _VENDOR = Path(__file__).resolve().parent / "vendor"
@@ -355,7 +369,7 @@ def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
                 old.unlink()
                 written.append(f"removed {old.relative_to(root).as_posix()}")
     written.extend(link_skills(root, wanted, force=force))
-    for name in skill_names():
+    for name in [*skill_names(), *RETIRED_SKILLS]:
         if name in wanted:
             continue
         agents_dir = root / ".agents" / "skills" / name
@@ -464,12 +478,13 @@ def stale_files(root: Path) -> list[str]:
     ):
         stale.append(_CLOUD_INSTALL)
     wanted = profile_skills(prof)
-    for name in skill_names():
+    for name in [*skill_names(), *RETIRED_SKILLS]:
         if name not in wanted:
             agents_dir = root / ".agents" / "skills" / name
             link = root / ".claude" / "skills" / name
             if agents_dir.exists() or link.exists() or link.is_symlink():
-                stale.append(f".agents/skills/{name} (not in profile {prof})")
+                why = "retired" if name in RETIRED_SKILLS else f"not in profile {prof}"
+                stale.append(f".agents/skills/{name} ({why})")
             continue
         for rel in skill_files(name):
             dest = root / ".agents" / "skills" / name / rel

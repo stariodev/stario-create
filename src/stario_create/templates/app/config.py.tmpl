@@ -15,10 +15,12 @@ class Config:
     app_name: str = "$app_name"
     # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
     data_dir: Path = Path("data")
+    # The database file from DATABASE_PATH; empty: data_dir / "app.sqlite3".
+    database_path: str = ""
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "app.sqlite3"
+        return Path(self.database_path) if self.database_path else self.data_dir / "app.sqlite3"
 
     @classmethod
     def from_env(cls) -> Config:

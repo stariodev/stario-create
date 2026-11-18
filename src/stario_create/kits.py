@@ -57,7 +57,10 @@ KITS: dict[str, Kit] = {
         create_only=("app/data.py",),
         next=(
             'Pages for signed-in users: app.use("/editor", session.require) in app/main.py; '
-            "a handler behind it reads signed_in_user(c).",
+            "a handler behind it reads signed_in_user(c), any other current_user(c) (id or None).",
+            "User columns go in CREATE TABLE users in app/auth/data.py. app/pages/login.py is plain "
+            "forms: change paths (app/urls.py), labels and markup to fit; keep the route and field "
+            "names, and tests/test_login.py still holds.",
             "Over plain HTTP on a laptop (not localhost), put APP_DEV=1 in .env.",
             "On a server, set SESSION_SECRET (32+ random characters); else data/session.key holds it.",
         ),
@@ -66,7 +69,12 @@ KITS: dict[str, Kit] = {
         help="Tailwind v4 and DaisyUI through the standalone binary, with a theme switch",
         gitignore=("tailwindcss", "frontend/daisyui*.mjs"),
         create_only=("static/css/output.css",),
-        next=("Run `just css`, then commit static/css/output.css.",),
+        next=(
+            "Run `just css` after a class change (`just css-watch` next to `just dev`); commit "
+            "static/css/output.css. It scans app/**/*.py: write whole class names, never build them.",
+            'Classes go in classes(...) or {"class": ...}; DaisyUI components (btn, card, navbar) '
+            'work as is. A theme switch: h.Button(data.on("click", "app.theme.toggle()"), ...).',
+        ),
     ),
     "browser": Kit(
         help="scripts/browser.py: the rare Playwright check for client JS that holds state",

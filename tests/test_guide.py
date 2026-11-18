@@ -32,26 +32,22 @@ def _python_blocks(text: str) -> list[str]:
 @pytest.mark.parametrize("profile", PROFILES)
 def test_guide_fits_rule_loader_budget(profile):
     # Rule loaders (Devin) cut always-on rules at 16 KB. The app guide is enough for a
-    # first page, and leaves the `## This app` notes (4 KB) room under that cut. It
-    # rides along on every agent step: 5.14.0 was 11.9 KB. 5.16 adds the lines that
-    # cost steps in the round-3 transcripts (kit order, @baked, a fixed file name,
-    # the suite in the foreground) and stays under 12 KB, so 4 KB of notes fit.
+    # first app (pages, a live page, commands, accounts, search, paging) and leaves the
+    # `## This app` notes (4 KB) room under that cut: 12 KB. It rides along on every step.
     assert len(guide_text(profile).encode()) <= (12_000 if profile == "app" else 9_000)
 
 
 def test_always_on_text_stays_small():
-    # The guide and every skill description sit in context on every step. 5.14.0
-    # had 13.9 KB (about 3.6k tokens). 5.16 has one more skill and the guide lines the
-    # round-3 transcripts asked for; a cache read of 300 more tokens costs far less
-    # than the steps they save, but the total still may not grow past 14.3 KB.
+    # The guide and every skill description sit in context on every step. 5.16 had
+    # 14.3 KB with twelve skills; 6.0 has seven, so the total may not grow past that.
     size = len(guide_text().encode()) + sum(len(description(n).encode()) for n in skill_names())
     assert size <= 14_300, size
 
 
 @pytest.mark.parametrize("name", skill_names())
 def test_skill_fits_inline(name):
-    # A SKILL.md body holds the common path, about 1k tokens; depth goes in
-    # references/. Devin shows a skill inline up to 9.0 KB.
+    # A SKILL.md body holds one task's path; Devin shows a skill inline up to 9.0 KB.
+    # 6.0 has no references: each skill is one load, never a chain.
     assert len(skill_text(name).encode()) <= 8_000
     for rel in skill_files(name)[1:]:
         assert len(resource(f"skills/{name}/{rel}").read_text().encode()) <= 6_000, rel
@@ -66,13 +62,24 @@ def test_each_reference_is_named_in_its_skill(name):
 
 @pytest.mark.parametrize("name", skill_names())
 def test_description_says_when_to_use_the_skill(name):
-    # What the skill covers, then "Use when/for/before" (or "Load before"): the words an
-    # agent's task contains come first, so the skill loads when its topic comes up.
+    # What the skill covers (the words a task contains) first, then "Use when/for/before".
+    # 300 characters, not 260 as in 5.16: seven skills replace twelve, so each description
+    # names more triggers and its "Not for" case, and the sum is still smaller.
     text = description(name)
     assert any(f"Use {w}" in text for w in ("when", "for", "before")) or text.startswith(
         "Load before"
     ), text
-    assert len(text) <= 260, len(text)
+    assert len(text) <= 300, len(text)
+
+
+@pytest.mark.parametrize("name", skill_names())
+def test_no_skill_sends_the_agent_to_another_skill(name):
+    # A skill that points at a skill gets both loaded (5.15: stario-auth pulled in
+    # stario-litewriter in 6/6 runs). Only the guide routes; a skill may name one other
+    # skill for a case it does not cover, at most once.
+    text = skill_text(name).split("---", 2)[2]
+    others = [n for n in skill_names() if n != name and f"`{n}`" in text]
+    assert len(others) <= 1, others
 
 
 def test_guide_marks_the_kit_part_for_sync():
@@ -122,55 +129,81 @@ def test_guide_ends_with_this_app_section(profile):
     assert guide_text(profile).rstrip().rsplit("## ", 1)[-1].startswith("This app")
 
 
-def test_guide_proves_a_live_update_from_the_stream():
-    assert "timeout=2" in skill_text("stario-feature")
-    assert "assert the next event" in skill_text("stario-feature")
-
-
 def test_guide_sets_a_budget_for_the_app_notes():
     assert "under 4 KB" in guide_text()
 
 
-def test_guide_sends_only_what_a_person_must_see_to_a_browser():
-    text = guide_text()
-    assert "`stario-browser-check`" in text
-    browser = skill_text("stario-browser-check")
-    assert "the user is the browser" in browser
-    assert "computer use" in browser
-
-
-def test_guide_names_the_tools_that_replace_rules():
+def test_guide_is_the_loop_and_names_the_tools_that_replace_rules():
     text = guide_text()
     for name in (
+        "uvx stario-create@latest new app --db",
+        "add auth --password",
         "uvx stario-create@latest check",
         "uvx stario-create@latest request GET",
-        "stario-create@latest add page",
         "lsof -ti",
         "pkill -f",
         "timeout",
         "acceptance suite",
+        "foreground",
         "Leave imports",
     ):
         assert name in text, name
     assert "Read both once" not in text
 
 
-def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
-    text = skill_text("stario-datastar")
-    for name in ["data.on(", "data.bind(", "data.indicator(", "at.get(", "sse.patch_elements("]:
-        assert name in text
-    assert "Datastar Pro only" in text
-    assert "data.persist()" not in skill_text("stario-feature")
-    assert "stario-datastar" in guide_text()
+def test_guide_states_the_facts_that_cost_runs():
+    # stario-agent-bench notes/kit-learnings.md, "Facts the kit must get right": each one
+    # is in the always-on guide, or a tool makes it unnecessary (see DESIGN.md).
+    text = " ".join(guide_text().split())
+    for fact in (
+        "`@baked`",  # page() runs once with placeholders
+        "per-request part",  # a signed-in header is a parameter
+        "Files(ASSETS.directory",  # a file that keeps its name
+        "replaces only files still equal to the scaffold",  # kits right after new
+        "w.redirect(url, 303)",
+        "SSE(w).navigate(url)",
+        '"300ms"',
+        "raises `QueryError`",  # db.value on no row
+        "a row or None",  # db.one
+        "apsw.ConstraintError",
+        "to_thread",  # hash before the write
+        "yields only when its result changes",  # watch
+        "chain steps",  # request starts on an empty database
+        "`classes(...)`",
+        "before the children",
+        "cast(list[str], loads(s))",
+        "list[HtmlElement]",
+        "second `GET /` raises",
+        "tests/test_pages.py",
+        "STARIO_PORT",
+        "DATABASE_PATH",
+        "lsof -ti tcp:8000",  # kill $! does not reach an earlier call's job
+        "keep the route names",  # the login kit's tests survive a rewrite
+    ):
+        assert fact in text, fact
 
 
 def test_browser_check_owns_its_server():
-    assert "stario-create@latest add browser" in skill_text("stario-browser-check")
-    assert "playwright install chromium" in skill_text("stario-browser-check")
+    text = skill_text("stario-js")
+    assert "stario-create@latest add browser" in text
+    assert "playwright install chromium" in text
     script = template("kits/browser/scripts/browser.py").read_text()
     assert "async_playwright" in script
     assert 's.bind(("127.0.0.1", 0))' in script
     assert "server.terminate()" in script
+
+
+def test_tests_skill_proves_a_live_update_from_the_stream():
+    text = skill_text("stario-tests")
+    assert "timeout=2" in text
+    assert "assert the next event" in text
+
+
+def test_reference_lists_the_pro_only_attributes():
+    text = skill_text("stario-reference")
+    assert "Datastar Pro only" in text
+    for name in ("persist", "query_string", "data.on_intersect(", 'data.preserve_attr("open")'):
+        assert name in text, name
 
 
 @pytest.mark.parametrize("name", skill_names())
@@ -202,27 +235,6 @@ def test_indicator_sits_on_the_sending_element(name):
                     pytest.fail("data.indicator on h.Button inside a submitting h.Form")
 
 
-def test_handler_skill_lists_the_server_api():
-    text = kit_text()
-    for name in [
-        "c.req.query",
-        "ParsedQuery",
-        "w.empty()",
-        "relay.subscribe(",
-        "security_headers()",
-        "TestClient(",
-    ]:
-        assert name in text, name
-    assert "stario-api" in guide_text()
-    assert "stario-feature" in skill_text("stario-api")
-
-
-def test_litewriter_skill_teaches_watch_with_a_sort():
-    text = skill_text("stario-litewriter")
-    assert "## The stream: `watch`" in text
-    assert "`ORDER BY` and column names cannot be parameters" in text
-
-
 def test_guide_routes_each_task_to_a_skill():
     text = guide_text()
     assert "## Skills" in text
@@ -230,13 +242,17 @@ def test_guide_routes_each_task_to_a_skill():
         assert f"`{name}`" in text
 
 
-def test_api_skill_answers_what_agents_probed_for():
+def test_kit_answers_what_agents_probed_for():
     # Agents read site-packages for these when the guide did not answer them
-    # (stario-agent-bench, 2026-11). Each one is in the guide, a skill, or a reference.
+    # (stario-agent-bench, 2026-11). Each one is in the guide or a skill.
     text = kit_text()
     for name in [
+        "c.req.query",
+        "w.empty()",
+        "relay.subscribe(",
+        "security_headers(",
+        "TestClient(",
         "STARIO_PORT",
-        "ServerConfig",
         "app.not_found(",
         "{path...}",
         "catch_errors(",
@@ -245,18 +261,16 @@ def test_api_skill_answers_what_agents_probed_for():
         "read_form(",
         "Files(",
         "ASSETS.href(",
-        "data={",
+        "data=",
         'r.headers.get("location")',
         "db.watch(",
         "apsw.ConstraintError",
+        "getlist(",
+        "Every HTML tag is `h.<Name>`",
+        "execute_script(",
+        "w.respond(",
     ]:
         assert name in text, name
-
-
-def test_guide_starts_an_app_in_one_command():
-    text = guide_text()
-    assert "uvx stario-create@latest new app --db" in text
-    assert "Write every file in one message" in text
 
 
 @pytest.mark.parametrize("name", skill_names())

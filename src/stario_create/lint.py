@@ -37,6 +37,7 @@ STATE_CALLS = frozenset(
 )
 SHELL_FILES = ("justfile", "Makefile", "package.json", "Procfile")
 KILL = re.compile(r"\b(pkill\s+-f|killall)\b")
+ORDER_BY_PARAM = re.compile(r"\bORDER\s+BY\s+:\w", re.I)
 SKIP = "# stario: ok"
 
 
@@ -116,6 +117,18 @@ class _Visitor(ast.NodeVisitor):
                         "when the call runs)",
                     )
                     break
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "redirect"
+            and len(node.args) == 1
+            and not node.keywords
+        ):
+            self.add(
+                node,
+                "redirect-status",
+                f"{name}(url) answers 307, which repeats a POST; pass the status: "
+                f"{name}(url, 303) after a form post (a Datastar action: SSE(w).navigate(url))",
+            )
         for kw in node.keywords:
             value = kw.value
             if (
@@ -154,6 +167,26 @@ class _Visitor(ast.NodeVisitor):
                 "timeout=interval)`; a stream loops on c.alive(source)",
             )
         self.generic_visit(node)
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        for value in node.values:
+            if isinstance(value, ast.Call) and _dotted(value.func) == "classes":
+                self.add(
+                    value,
+                    "classes-in-dict",
+                    "classes(...) is an attribute of its own, not a dict value: "
+                    'h.Div(classes("a", {"b": on}), {"id": "x"}, ...)',
+                )
+        self.generic_visit(node)
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if isinstance(node.value, str) and ORDER_BY_PARAM.search(node.value):
+            self.add(
+                node,
+                "order-by-param",
+                "ORDER BY takes no :parameter (it sorts by a constant); pick the SQL text "
+                'from a dict of fixed orders: SORTS = {"new": "created DESC", ...}',
+            )
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if _dotted(node) == "os.environ" and not self.config:
@@ -267,8 +300,8 @@ def lint_source(source: str, path: str) -> list[Finding]:
 
 _KILL_FIX = (
     "pkill -f and killall stop every matching process, other apps too; stop the "
-    "server you started with `kill $!` or by its port (`lsof -ti tcp:PORT | xargs "
-    "kill`), or skip the server: `stario-create request GET /path`"
+    "server you started by its port (`lsof -ti tcp:PORT | xargs kill`; `kill $!` does "
+    "not reach a job of an earlier shell), or skip the server: `stario-create request GET /path`"
 )
 
 

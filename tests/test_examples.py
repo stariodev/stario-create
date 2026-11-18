@@ -27,7 +27,7 @@ from stario_create.scaffold import scaffold_files
 BLOCK = re.compile(r"```python\n(.*?)```", re.S)
 HEADER = re.compile(r"# ((?:app|tests)/[\w/]+\.py)(?=\n|$|[ :(])")
 ERROR = re.compile(r"^ERROR (\S+?):(\d+):\S+ (.*) \[([\w-]+)\]$", re.M)
-KITS = {"stario-auth": "auth-password"}
+KITS = {"stario-accounts": "auth-password", "stario-tests": "auth-password"}
 PYREFLY = Path(sys.executable).with_name("pyrefly")
 
 PRELUDE = """\
@@ -159,9 +159,10 @@ def test_every_example_type_checks(tmp_path: Path, name: str):
 
 
 def test_the_agents_page_files_are_whole():
-    """The AGENTS.md page files start with their imports: a copy needs nothing else."""
+    """The AGENTS.md page files start with their imports: a copy needs nothing else.
+    A block headed `# app/<file>.py (add)` holds lines to add to a scaffold file."""
     for code in blocks(guide_text()):
         m = HEADER.match(code)
-        if m and m[1] != "tests/test_todos.py":
+        if m and not code.split("\n", 1)[0].endswith("(add)"):
             body = code.split("\n", 1)[1]
             assert body.startswith(("from ", "import ")), m[1]

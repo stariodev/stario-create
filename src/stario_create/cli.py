@@ -61,7 +61,7 @@ _NEW_SUMMARY = """\
   justfile               just dev (reload) | just serve | just check | just test -k NAME
   app/config.py          Config: a field with a default per setting, read from the env
                          var of its name in capitals; data_dir from PROJECT_DATA_DIR
-                         (default ./data); db_path = data_dir / "app.sqlite3" (a property)
+                         (default ./data); db_path: DATABASE_PATH, else data_dir/app.sqlite3
   static/                css/style.css (plain CSS), js/datastar.js
   tests/conftest.py      fixture `client`: TestClient(bootstrap), PROJECT_DATA_DIR=tmp_path
   tests/test_pages.py    generated: the page check and the lint (with tests/_pagecheck.py,
@@ -147,8 +147,9 @@ def cmd_new(args: argparse.Namespace) -> int:
         _NEW_SUMMARY.format(db_dep=f" {LITEWRITER_REQ}" if args.db else "", agent_note=agent_note)
     )
     print(
-        f"\nnext: cd {where}; write every page in one step (or `uvx stario-create@latest add page "
-        "NAME...`), then `just check` (without just: `uvx stario-create@latest check`)"
+        f"\nnext: cd {where}; a kit now, before any code, if the task needs it (`uvx "
+        "stario-create@latest add auth --password`, `add auth`, `add tailwind`); then write "
+        "urls, data, layout, pages, main in few messages; then `uvx stario-create@latest check`"
     )
     return 0
 

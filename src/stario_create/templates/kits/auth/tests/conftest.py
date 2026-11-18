@@ -65,6 +65,7 @@ class FakeProviders(Http):
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     monkeypatch.setenv("PROJECT_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("DATABASE_PATH", raising=False)
     monkeypatch.setenv("SESSION_SECRET", "test-secret-test-secret-test-secret-test")
     monkeypatch.setenv("APP_DEV", "1")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-id")
