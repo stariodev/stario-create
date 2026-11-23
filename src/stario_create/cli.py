@@ -210,7 +210,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     changed += [str(Path(p).relative_to(root)) for p in sync_generated_tests(root)]
     changed += [str(Path(p).relative_to(root)) for p in sync_cloud_env(root)]
     changed += [
-        p if p.startswith("removed ") else str(Path(p).relative_to(root))
+        p if p.startswith(("removed ", "kept ")) else str(Path(p).relative_to(root))
         for p in sync_skill_files(root, force=args.force)
     ]
     if changed:

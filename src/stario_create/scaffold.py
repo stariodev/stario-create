@@ -7,6 +7,8 @@ already holds the target content counts as kept, not created.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -41,7 +43,8 @@ GENERATED_TESTS = {
     "tests/_pagecheck.py": "templates/tests/_pagecheck.py",
     "tests/_lint.py": "lint.py",
 }
-# Skills of earlier kits: `sync` removes them, so an app does not keep two guides to one topic.
+# Skills of earlier kits: `sync` removes them, so an app does not keep two guides to one topic,
+# unless a file in one differs from every released copy (`retired_skills.json`): then it is kept.
 RETIRED_SKILLS = (
     "stario-api",
     "stario-auth",
@@ -55,9 +58,24 @@ RETIRED_SKILLS = (
     "stario-tailwind-daisyui",
     "stario-view",
 )
+
+
+def _edited_retired(agents_dir: Path, name: str) -> bool:
+    """True when a file under a retired skill differs from every copy a release shipped."""
+    if name not in RETIRED_SKILLS or not agents_dir.is_dir():
+        return False
+    shipped = set(json.loads(RETIRED_TABLE.read_text()).get(name, []))
+    return any(
+        hashlib.sha256(f.read_bytes()).hexdigest() not in shipped
+        for f in agents_dir.rglob("*")
+        if f.is_file()
+    )
+
+
 _RULE_LIMIT = 16_000  # Devin and others cut an always-on rule file here
 _NOTES_LIMIT = 4_000  # the `## This app` notes; past this, move a topic to its own file
 _VENDOR = Path(__file__).resolve().parent / "vendor"
+RETIRED_TABLE = Path(__file__).resolve().parent / "retired_skills.json"
 
 
 class ScaffoldError(Exception):
@@ -376,6 +394,11 @@ def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
         link = root / ".claude" / "skills" / name
         if not agents_dir.exists() and not link.is_symlink() and not link.exists():
             continue
+        if _edited_retired(agents_dir, name):
+            written.append(
+                f"kept .agents/skills/{name} (retired, but edited here: delete it by hand)"
+            )
+            continue
         if link.is_symlink() or link.is_file():
             link.unlink()
         elif link.is_dir():
@@ -484,6 +507,8 @@ def stale_files(root: Path) -> list[str]:
             link = root / ".claude" / "skills" / name
             if agents_dir.exists() or link.exists() or link.is_symlink():
                 why = "retired" if name in RETIRED_SKILLS else f"not in profile {prof}"
+                if _edited_retired(agents_dir, name):
+                    why = "retired, edited here: delete it by hand"
                 stale.append(f".agents/skills/{name} ({why})")
             continue
         for rel in skill_files(name):

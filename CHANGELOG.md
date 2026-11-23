@@ -73,8 +73,9 @@ what the kit holds and why.
 - Replaces the kit part of `AGENTS.md` (between the markers, or everything above `## This
   app`) and keeps the app's notes.
 - Adds `CLAUDE.md` with `@AGENTS.md` when it is missing.
-- Installs the seven skills and deletes the folders of the ten removed ones, local edits
-  included: copy an edited skill elsewhere first.
+- Installs the seven skills and deletes the folders of the ten removed ones. A removed skill
+  with a file edited in the app (one that matches no released copy) is kept and reported; delete
+  it by hand.
 - Refreshes the generated `tests/_pagecheck.py` and `tests/_lint.py`.
 - Leaves every file under `app/` alone: an app with the folder-per-page layout keeps it, and
   an app with the 5.12 auth kit keeps its provider sign-in.

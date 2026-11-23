@@ -367,7 +367,29 @@ def test_sync_copies_references_and_removes_old_ones(tmp_path: Path):
     assert not [s for s in stale_files(tmp_path) if s.startswith(".agents")]
 
 
-def test_sync_removes_the_skills_of_an_older_kit(tmp_path: Path):
+def _shipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str, text: str) -> None:
+    """Pretend a release shipped `text` as a file of the retired skill `name`."""
+    import hashlib
+    import json
+
+    from stario_create import scaffold
+
+    table = tmp_path / "retired_skills.json"
+    table.write_text(json.dumps({name: [hashlib.sha256(text.encode()).hexdigest()]}))
+    monkeypatch.setattr(scaffold, "RETIRED_TABLE", table)
+
+
+def test_retired_skills_table_is_bundled():
+    import json
+
+    from stario_create.scaffold import RETIRED_SKILLS, RETIRED_TABLE
+
+    table = json.loads(RETIRED_TABLE.read_text())
+    assert set(table) == set(RETIRED_SKILLS)
+
+
+def test_sync_removes_the_skills_of_an_older_kit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    _shipped(monkeypatch, tmp_path, "stario-feature", "old")
     old = tmp_path / ".agents/skills/stario-feature"
     old.mkdir(parents=True)
     (old / "SKILL.md").write_text("old")
@@ -475,3 +497,18 @@ def test_kit_files_pass_ruff_in_the_app(tmp_path: Path, kit: str):
             [sys.executable, "-m", "ruff", *argv], cwd=tmp_path, capture_output=True, text=True
         )
         assert out.returncode == 0, out.stdout + out.stderr
+
+
+def test_sync_keeps_a_retired_skill_edited_in_the_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    _shipped(monkeypatch, tmp_path, "stario-view", "old")
+    kept = tmp_path / ".agents/skills/stario-view"
+    kept.mkdir(parents=True)
+    (kept / "SKILL.md").write_text("old, with the team's own notes")
+    assert ".agents/skills/stario-view (retired, edited here: delete it by hand)" in stale_files(
+        tmp_path
+    )
+    written = sync_skill_files(tmp_path)
+    assert any(w.startswith("kept .agents/skills/stario-view") for w in written)
+    assert (kept / "SKILL.md").is_file()
