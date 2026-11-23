@@ -1,121 +1,251 @@
+<!-- BEGIN stario-create -->
 # Stario app guide
 
-How to build a Stario app, unless the developer asks for something else.
+A Stario app is Python 3.14: the server renders `h.*` tags, Datastar (`data.*`, `at.*`) sends
+commands and keeps pages live over SSE, litewriter keeps SQLite (stario 5.8, litewriter 0.3).
+The names are here or in a skill: never read `site-packages`.
 
-Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs.
+## The loop
 
-The last section of this file holds the notes of this app, under 4 KB. A deep note on one topic goes in its own file, named by a line such as "Read `EDITOR.md` before you change the editor."
+1. Start in one command with the kits the task needs (a kit replaces only files still equal to
+   the scaffold): `uvx stario-create@latest new app --db && cd app && uvx stario-create@latest add auth --password`.
+   Kits: `add auth --password` (email and password), `add auth` (Google, GitHub), `add tailwind`
+   (DaisyUI, no Node). `new` prints the files you change: do not open them.
+2. Read the spec and tests, many files per command.
+3. Write `app/urls.py` (every route), `app/data.py` (tables, rows, SQL), `app/layout.py`
+   (shared markup), `app/pages/<area>.py` (a module per area), then `app/main.py` (one
+   register line per page class). Import what a file uses; do not tidy imports or unused names
+   by hand: `check` sorts and drops them.
+4. `uvx stario-create@latest check` (lint, types, tests): each problem names its fix. Repeat
+   until `check: ok`.
+5. See a page with no server: `uvx stario-create@latest request GET /bookmarks`. Each call starts
+   on an empty database, so chain steps: `request POST /signup -d email=a@b.co -d password=12345678
+   -d username=a GET /bookmarks` (`-d` a form field, `-j JSON` a Datastar action, `-s JSON` signals
+   on a GET).
+6. An acceptance suite (`npm test`): run it in the foreground with the Bash tool's timeout
+   (600000), never in the background. When it passes, stop: no screenshots, no own tests. No
+   suite: write TestClient tests (skill `stario-tests`).
 
-## Which skill
+Shell: macOS has no `timeout`; `sed -i ''`. Stop a server of an earlier call by its port:
+`lsof -ti tcp:8000 | xargs kill`, never `pkill -f` (it stops other apps). The app listens on
+127.0.0.1:8000; a host's `PORT`: `STARIO_HOST=0.0.0.0 STARIO_PORT=$PORT`. `Config` already
+reads `DATABASE_PATH`.
 
-Read the one skill for the task in `.agents/skills/`, then write the code. `stario-create add <kit>` writes tested files.
+Changing an app that holds data: read `app/urls.py`, `app/data.py` and the pages to change first.
+A new column on a table with rows: skill `stario-migrate` (never drop and create). A new table
+is one more `CREATE TABLE IF NOT EXISTS`.
 
-- A static page (no command): no skill. Write `urls.py`, `views.py`, and a page class with one `show`.
-- A page that every tab sees change, in SQLite: `stario-feature` and `stario-litewriter`.
-- State in memory, a message to one tab, an edit dialog: `stario-relay`.
-- A sort, a filter, paging, a search as you type: `stario-view`.
-- Work that takes seconds, or a loop on a timer: `stario-jobs`.
-- Login: `stario-auth`. Styles: `stario-tailwind-daisyui`. JavaScript: `stario-client`.
-- Before a browser or a screenshot: `stario-browser-check`.
-- `stario-api` lists every signature. Read it only for a name that the skill and the code do not show.
-
-## Layout
-
-```text
-app/
-  main.py           bootstrap: shared objects, one register line per page under `# pages`
-  config.py         Config: one field with a default per setting; from_env reads it by name
-  common/shell.py   page(title, body): the <html> document
-  features/<page>/  urls.py (Routes, the View), views.py (render), handlers.py (the page class), data.py (SQL)
-  <name>/           code with no URL; never imports features/
-tests/test_<page>.py
-```
-
-- A page is one folder, named after the URL noun: `/rooms/{room_id}` → `room`. It gets one line in `LINKS` in `app/features/home/views.py`.
-- A feature may import the `urls.py` and `data.py` of another feature, never its views or handlers.
-- JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string.
-
-## Stario rules
-
-- Not ASGI: no Uvicorn, FastAPI, or response objects.
-- `bootstrap(app, span)` is an async generator with one `yield`. Keep `app.use("/", same_origin(), security_headers())`. `same_origin()` is the CSRF guard: add no CSRF tokens. It does not check GET, so a GET never changes state.
-- A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
-- `Route("GET /rooms/{room_id}")` is one method on one path; a GET route answers HEAD too. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})`. No `url_for`.
-- A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`. A timer loop waits on `app.shutdown`, never `asyncio.sleep`.
-- No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
-- A middleware with a dependency is a method of a class built in `bootstrap`: `app.use("/", session.attach)`, never a function that returns a middleware. Handlers read its state through a typed function such as `current_user(c)`, not `c.state[...]`.
-
-## A page is a resource
-
-- **Go somewhere** (a page, a sort, a filter): `<a href>`. The query holds the view.
-- **A result only this tab needs** (search as you type): a `GET` that answers `SSE(w).patch_elements(part)`.
-- **Change state**: a command, `POST`.
-
-A page on state that cannot change while it is open is static: `w.html(render(...))`. A page on shared state is live:
-
-```text
-GET  /board        the document; its top element has data.init(at.get(BOARD_LIVE.href(), retry="always"))
-GET  /board/live   the stream: send render(...), and again after each change
-POST /board/...    a command
-```
-
-The stream is the only thing that sends HTML. It follows `db.watch(query)` (SQLite) or `relay.subscribe(CHANGED, latest=True)` (memory). A command never answers with HTML:
-
-1. Read: `await read_signals(c.req)`, `c.match.params`. A plain HTML form or a file upload: `await read_form(c.req)` (`stario.forms`). A body over 10 MiB needs `max_size=`.
-2. Validate: bad input gets `w.text("why", status=400)` and `return`.
-3. Reply: `w.empty()`, `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`.
-4. Execute: `await db.write(...)`, or change memory, then `relay.publish(CHANGED, {})`.
-
-## Render and signals
-
-- `render(...)` returns the whole document from state. It does not fetch.
-- The element with `data.init(...)` and `data.signals({...}, if_missing=True)` keeps its tag, `id`, and attributes in every render.
-- Signals carry what the user types or picks. A leading `_` keeps a signal in the tab. One signal per field, not one per row.
-- A busy form: `data.indicator("_saving")` on the `<form>`, `data.attr("disabled", "$_saving")` on its button.
-- A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
-
-## Code shape
-
-A page is one class in `handlers.py`. Its fields are its dependencies. A read or a write is a function in `data.py`: `list_*`, `get_*`, `add_*`, `set_*`, `remove_*`.
+## A page: list, search, paging, live stream, a command
 
 ```python
+# app/urls.py (add)
+BOOKMARKS = Route("GET /bookmarks")
+BOOKMARKS_LIVE = Route("GET /bookmarks/live")
+ADD_BOOKMARK = Route("POST /bookmarks")
+```
+
+```python
+# app/data.py
+from dataclasses import dataclass
+
+from litewriter import LiteWriter, Tx
+
+PER_PAGE = 20
+
+
+def schema(tx: Tx) -> None:
+    """Runs at each start: every statement is IF NOT EXISTS."""
+    tx.execute(
+        "CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY,"
+        " title TEXT NOT NULL, url TEXT NOT NULL, created TEXT NOT NULL DEFAULT (datetime('now')))"
+    )
+
+
 @dataclass(frozen=True, slots=True)
-class BoardPage:
+class Bookmark:
+    id: int
+    title: str
+    url: str
+
+
+# A stream repaints when this result changes: it changes with every write the page shows.
+CHANGES = "SELECT count(*), max(id) FROM bookmarks"
+_MATCH = "instr(lower(title), lower(:q)) > 0"
+
+
+def list_bookmarks(db: LiteWriter, q: str, page: int) -> tuple[list[Bookmark], int]:
+    sql = f"SELECT id, title, url FROM bookmarks WHERE {_MATCH} ORDER BY id DESC"
+    rows = db.query(
+        f"{sql} LIMIT :n OFFSET :skip", Bookmark, q=q, n=PER_PAGE, skip=(page - 1) * PER_PAGE
+    )
+    total: int = db.value(f"SELECT count(*) FROM bookmarks WHERE {_MATCH}", q=q)
+    return rows, total
+
+
+def add_bookmark(tx: Tx, title: str, url: str) -> int:
+    return tx.value(
+        "INSERT INTO bookmarks (title, url) VALUES (:t, :u) RETURNING id", t=title, u=url
+    )
+```
+
+```python
+# app/pages/bookmarks.py
+from dataclasses import dataclass
+
+from litewriter import LiteWriter
+from stario import App, Context, Writer, classes, h
+from stario.datastar import SSE, at, data, read_signals
+from stario.markup import HtmlElement
+
+from app.data import CHANGES, PER_PAGE, Bookmark, add_bookmark, list_bookmarks
+from app.layout import page
+from app.urls import ADD_BOOKMARK, BOOKMARKS, BOOKMARKS_LIVE
+
+
+@dataclass(frozen=True, slots=True)
+class BookmarksPage:
     db: LiteWriter
-    relay: Relay[dict]
 
     def register(self, app: App) -> None:
-        app.add(BOARD, self.show)
+        app.add(BOOKMARKS, self.show)
+        app.add(BOOKMARKS_LIVE, self.live)
+        app.add(ADD_BOOKMARK, self.add)
+
+    def listing(self, c: Context) -> HtmlElement:
+        """The live part, from the URL query: the page and the stream send it."""
+        q, raw = c.req.query.get("q", "").strip(), c.req.query.get("page", "1")
+        n = int(raw) if raw.isdecimal() and raw != "0" else 1
+        return render_list(q, n, *list_bookmarks(self.db, q, n))
 
     async def show(self, c: Context, w: Writer) -> None:
-        view = BoardView.from_query(c.req.query)
-        w.html(render(list_tiles(self.db, view), view))
+        w.html(render(c.req.query.get("q", ""), self.listing(c)))
+
+    async def live(self, c: Context, w: Writer) -> None:
+        sse = SSE(w)
+        async with self.db.watch(CHANGES) as changes:
+            async for _ in c.alive(changes):  # now, then after each change, until the tab closes
+                sse.patch_elements(self.listing(c))
+
+    async def add(self, c: Context, w: Writer) -> None:
+        signals = await read_signals(c.req)
+        title, url = str(signals.get("title", "")).strip(), str(signals.get("url", "")).strip()
+        if not title or not url.startswith(("https://", "http://")):
+            SSE(w).patch_signals({"_error": "a title and an http(s) URL are required"})
+            return
+        await self.db.write(add_bookmark, title, url)
+        SSE(w).patch_signals({"title": "", "url": "", "_error": ""})  # the streams repaint
+
+
+def render_list(q: str, n: int, rows: list[Bookmark], total: int) -> HtmlElement:
+    pages = range(1, (total + PER_PAGE - 1) // PER_PAGE + 1)
+    return h.Section(
+        {"id": "bookmarks"},
+        data.init(at.get(BOOKMARKS_LIVE.href(query={"q": q or None, "page": n}))),
+        h.Ul(*[h.Li(h.A({"href": b.url}, b.title)) for b in rows]),
+        None if rows else h.P("No bookmarks yet."),
+        h.Nav(*[
+            h.A(
+                classes({"active": p == n}),
+                {"href": BOOKMARKS.href(query={"q": q or None, "page": p})},
+                str(p),
+            )
+            for p in pages
+        ]),
+    )
+
+
+def render(q: str, listing: HtmlElement) -> HtmlElement:
+    return page(
+        "Bookmarks",
+        h.Main(
+            {"id": "main"},
+            data.signals({"title": "", "url": "", "_error": ""}),
+            h.Form(
+                {"method": "get", "action": BOOKMARKS.href()},
+                h.Input({"type": "search", "name": "q", "value": q}),
+            ),
+            h.Form(
+                data.on("submit", at.post(ADD_BOOKMARK.href()), prevent=True),
+                h.Input({"placeholder": "Title"}, data.bind("title")),
+                h.Input({"placeholder": "https://..."}, data.bind("url")),
+                h.Button({"type": "submit"}, "Add"),
+                h.P({"role": "alert"}, data.show("$_error"), data.text("$_error")),
+            ),
+            listing,
+        ),
+    )
 ```
 
-No service classes, repositories, base pages, `utils`, or helpers with one call site. Read input like this:
+`app/main.py`: import `BookmarksPage`; in bootstrap, `BookmarksPage(db).register(app)`. Link the
+page in `LINKS` of `app/pages/home.py`. That file owns `GET /`: a task with its own home page
+rewrites it (a second `GET /` raises).
 
-```python
-title = str(signals.get("title", "")).strip()  # text
-done = signals.get("done") is True  # bool
-tile_id = c.match.params["tile_id"]  # path int: tile_id.isdecimal(), then int(tile_id)
-```
+## Names
 
-## Tests
+- Every HTML tag is `h.<Name>`, one capital (`h.Tbody`). Attribute dicts, `classes(...)` (never
+  a dict value) and `data.*` come before the children (text, tags, `None`, `*list`). A list of
+  nodes in a variable is `list[HtmlElement]`;
+  a `list[str]` in `data.signals` is spread, `{"tags": [*tags]}`.
+  `SafeString(html)` is for trusted HTML only.
+- Request: `c.req.query.get("q", "")`, `.getlist("tag")`, `c.match.params["slug"]` (a `str`),
+  `c.req.cookies.get("k")`, `c.req.headers.get("k")`.
+- Answer once: `w.html(el)`, `w.text("not found", status=404)`, `w.json(v)`, `w.empty()`,
+  `w.redirect(url, 303)`, `w.respond(body, b"text/csv")`. A Datastar action answers through
+  `SSE(w)`: `.patch_signals`, `.patch_elements(el)` (morphs the element with that id;
+  `mode="append", selector="#list"` adds), `.remove("#id")`, `.navigate(url)`; or `w.empty()`.
+- Plain form: `h.Form({"method": "post", "action": R.href()}, ...)`; `form = await read_form(c.req)`
+  (`stario.forms`), `form.get("title", "")`, `form.getlist("tag")`; then `w.redirect(url, 303)`, or
+  the page again with its errors, `w.html(..., status=422)`.
+- Routes: `Route("GET /tags/{tag}")`, `{path...}` takes the rest; `R.href("x", query={"page": 2})`
+  drops `None` values. `app.use("/admin", middleware)`; `app.not_found("/", handler)`.
+- A row's button: `data.on("click", at.post(DONE.href(item.id)))`; a missing or another user's
+  row answers 404. Search as you type: an input with `data.bind("q")` and `data.on("input",
+  at.get(RESULTS.href()), debounce="300ms")`; that handler reads `read_signals` and patches.
+- What only this tab needs before a submit (tags being typed, an open panel) is a signal set in
+  an expression, `$tags = [...$tags, $tag]`, no server call; the submit sends it.
+- Data: `db.one(sql, Row, **p)` is a row or None; `db.value` raises `QueryError` on no row;
+  `db.watch(sql, Row, **p)`. In a write: `tx.execute`, `tx.value`, `tx.one`, `tx.query`. A taken unique value raises `apsw.ConstraintError`.
+- Static: `ASSETS.href("css/x.css")` renames to `x.<hash>.css`. A URL that must keep its file name
+  (a default avatar): `MEDIA = Files(ASSETS.directory / "media", "/media")` in
+  `app/layout.py`, `await MEDIA.attach(app)` in bootstrap, `MEDIA.href("avatar.svg")`.
+- `set_cookie(w, "k", value, max_age=86400)` (`stario.cookies`). `from stario.json import dumps,
+  loads`; `loads` returns `object`: `cast(list[str], loads(s))`.
+- A setting is one field with a default in `Config` (`site_url: str = ""` reads `SITE_URL`;
+  no `os.environ`), passed from bootstrap to page classes. State lives in objects, not modules.
 
-Tests run `TestClient(bootstrap, request_timeout=5)`. Each page: it loads, a command repaints the stream, bad input gets 4xx. The next SSE event is the changed HTML; two streams are two tabs. A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=`. `tests/test_pages.py` finds and checks every page by itself.
+## Rules that bite
 
-A bug starts with a test that shows it. Run `just test -k <name>` and see it fail. Then fix, see it pass, and read `git diff`.
+- `page()` in `app/layout.py` is `@baked`: it runs once at import with placeholders, so an `if`,
+  `==`, f-string or loop on its parameters raises. A per-request part (a signed-in header) is a
+  new parameter that every caller passes.
+- A write function (`fn(tx, ...)`) makes no network call and hashes no password: do that first,
+  slow work through `await asyncio.to_thread(...)`.
+- `watch` wakes on a commit to a table it reads and yields only when its result changes. Watch
+  something every shown edit changes: `max(updated)`, the edited columns, a count per table.
+- `ORDER BY` takes no parameter: pick the SQL text from a dict, `SORTS = {"new": "id DESC"}`.
+- A Datastar action follows no redirect: `SSE(w).navigate(url)`. A duration is a string, `"300ms"`.
+- Do not read or edit the generated `tests/test_pages.py`, `_pagecheck.py`, `_lint.py`,
+  `test_js.py`: their failures name the fix.
 
-## Checks
+## Accounts
 
-Change a file with the Edit tool. Run Python as `uv run python`. Run `just check` after each change: it formats, fixes lint, checks types, runs the tests, and prints only problems. pyrefly checks each call, so trust Stario, Datastar, and litewriter.
+`add auth --password` writes `app/auth/` (users table, `Session`, hashes) and `app/pages/login.py`
+(plain forms: `/login`, `/signup`, `POST /logout`) with `tests/test_login.py`. Change paths in
+`app/urls.py`, labels and markup freely; keep the route names and the fields `email`, `password`,
+`username`, and the tests hold. User columns go in `CREATE TABLE users` (`app/auth/data.py`).
+Protect a prefix in `app/main.py`: `app.use("/settings", session.require)`. In a handler,
+`current_user(c)` is the user id or None; `signed_in_user(c)` behind `require`.
 
-A browser is only for client JS that holds state. No computer use. When the user watches the app, the user is the browser: say what to look at. When it does not work: `curl` their server, then a failing test (skill `stario-browser-check`).
+## Skills
 
-## Cursor Cloud specific instructions
+Load one only when a task needs it: `stario-tests` (TestClient tests, when no acceptance suite),
+`stario-migrate` (tables that already hold rows), `stario-outside-api` (another service over HTTP),
+`stario-js` (any JavaScript file), `stario-background` (state in memory, slow jobs, timers),
+`stario-accounts` (past the kit: Google setup, roles, tokens), `stario-reference` (a name this
+file lacks or pyrefly rejects).
 
-Install is `.cursor/cloud-install.sh`.
+<!-- END stario-create -->
 
 ## This app
 
-Notes for this app go below. `stario-create sync` replaces the text above and keeps this section.
+Notes for this app, under 4 KB. `sync` keeps this section.

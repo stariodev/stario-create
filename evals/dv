@@ -1,3 +1,0 @@
-#!/bin/sh
-# Run the Devin CLI with a clean env: an inherited IDE variable hides the login.
-exec env -i HOME="$HOME" PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin" USER="${USER:-adam}" TERM=xterm LANG=en_US.UTF-8 "${DEVIN_BIN:-$HOME/.local/bin/devin}" "$@"

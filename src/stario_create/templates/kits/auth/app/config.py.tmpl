@@ -10,6 +10,8 @@ class Config:
     app_name: str = "$app_name"
     # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
     data_dir: Path = Path("data")
+    # The database file from DATABASE_PATH; empty: data_dir / "app.sqlite3".
+    database_path: str = ""
     # Sign-in providers. Each one is on when its client id and secret are set.
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -23,7 +25,7 @@ class Config:
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "app.sqlite3"
+        return Path(self.database_path) if self.database_path else self.data_dir / "app.sqlite3"
 
     @classmethod
     def from_env(cls) -> Config:
@@ -31,6 +33,7 @@ class Config:
         config = cls(
             app_name=env.get("APP_NAME", "$app_name"),
             data_dir=Path(env.get("PROJECT_DATA_DIR", "data")),
+            database_path=env.get("DATABASE_PATH", ""),
             google_client_id=env.get("GOOGLE_CLIENT_ID", ""),
             google_client_secret=env.get("GOOGLE_CLIENT_SECRET", ""),
             github_client_id=env.get("GITHUB_CLIENT_ID", ""),

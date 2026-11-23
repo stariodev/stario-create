@@ -42,7 +42,7 @@ def test_scaffold_files_compile(tmp_path: Path):
     assert "app/main.py" in {str(Path(p).relative_to(tmp_path)) for p in created}
     assert _compile_dir(tmp_path) == []
     assert (tmp_path / "AGENTS.md").read_text() == guide_text()
-    assert not (tmp_path / "CLAUDE.md").exists()
+    assert (tmp_path / "CLAUDE.md").read_text() == "@AGENTS.md\n"
     assert (tmp_path / "static/js/datastar.js").exists()
     gitignore = (tmp_path / ".gitignore").read_text().splitlines()
     assert "*.sqlite3*" in gitignore
@@ -120,7 +120,9 @@ def test_cli_version():
 
 def test_cli_error_text():
     with tempfile.TemporaryDirectory() as d:
-        out = subprocess.run([*CLI, "new", "Bad-Name", "--dir", d], capture_output=True, text=True)
+        out = subprocess.run(
+            [*CLI, "new", "x", "--name", "Bad-Name", "--dir", d], capture_output=True, text=True
+        )
     assert out.returncode == 1
     assert out.stderr.startswith("stario-create: ")
     assert "hint: " in out.stderr
@@ -141,6 +143,60 @@ def test_cli_new_app_is_not_a_package(tmp_path: Path):
     pyproject = (root / "pyproject.toml").read_text()
     assert "[project.scripts]" not in pyproject
     assert "[build-system]" not in pyproject
+
+
+def test_app_name_comes_from_the_folder(tmp_path: Path):
+    from stario_create.scaffold import app_name_for
+
+    assert app_name_for(tmp_path / "My App") == "my_app"
+    assert app_name_for(tmp_path / "2048") == "app_2048"
+
+
+def test_scaffold_db_opens_litewriter(tmp_path: Path):
+    scaffold_files(tmp_path, "demo", db=True)
+    text = (tmp_path / "app/main.py").read_text()
+    assert "async with LiteWriter(config.db_path, schema=schema, claim=30) as db:" in text
+    assert "from app.data import schema" in text
+    assert "def schema(tx: Tx) -> None:" in (tmp_path / "app/data.py").read_text()
+    assert _compile_dir(tmp_path) == []
+
+
+def test_scaffold_without_db_has_no_data_module(tmp_path: Path):
+    scaffold_files(tmp_path, "demo")
+    assert not (tmp_path / "app/data.py").exists()
+    assert (tmp_path / "app/urls.py").is_file()
+    assert (tmp_path / "app/pages/home.py").is_file()
+
+
+def test_scaffold_under_the_guide_writes_no_second_copy(tmp_path: Path):
+    from stario_create.scaffold import guide_above
+
+    (tmp_path / "AGENTS.md").write_text(guide_text())
+    root = tmp_path / "app"
+    assert guide_above(root) == tmp_path / "AGENTS.md"
+    scaffold_files(root, "app", agent_files=False)
+    assert not (root / "AGENTS.md").exists()
+    assert not (root / ".agents").exists()
+    assert (root / "app/main.py").exists()
+
+
+def test_cli_new_in_place_prints_what_it_wrote(tmp_path: Path):
+    if shutil.which("uv") is None:
+        pytest.skip("uv is not on PATH")
+    (tmp_path / "AGENTS.md").write_text(guide_text())
+    out = subprocess.run(
+        [*CLI, "new", "app", "--db", "--no-verify"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.startswith("created app/")
+    for name in ("app/main.py", "app/config.py", "tests/conftest.py", "is the guide"):
+        assert name in out.stdout
+    assert "litewriter" in (tmp_path / "app/pyproject.toml").read_text()
+    assert not (tmp_path / "app/AGENTS.md").exists()
 
 
 def test_cli_sync_fresh_dir(tmp_path: Path):
@@ -199,11 +255,11 @@ def test_cli_sync_check(tmp_path: Path):
 
 def test_cli_sync_check_detects_stale_skill(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
-    skill_md = tmp_path / ".agents/skills/stario-feature/SKILL.md"
+    skill_md = tmp_path / ".agents/skills/stario-tests/SKILL.md"
     skill_md.write_text(skill_md.read_text() + "\nextra\n")
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
-    assert ".agents/skills/stario-feature/SKILL.md" in out.stdout
+    assert ".agents/skills/stario-tests/SKILL.md" in out.stdout
 
 
 def test_cli_sync_check_flags_a_guide_over_the_rule_limit(tmp_path: Path):
@@ -220,7 +276,9 @@ def test_cli_sync_warns_about_long_app_notes(tmp_path: Path):
     guide = tmp_path / "AGENTS.md"
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert "warning" not in out.stderr
-    guide.write_text(guide.read_text() + "note\n" * 1_000)
+    text = guide.read_text()
+    section = len(text.partition("## This app")[2].encode()) + len("## This app")
+    guide.write_text(text + "n" * (4001 - section))  # one byte past the 4000 budget
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 0, out.stdout
     assert "'## This app' is" in out.stderr
@@ -229,8 +287,8 @@ def test_cli_sync_warns_about_long_app_notes(tmp_path: Path):
 def test_cli_sync_check_detects_stale_guide(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     guide = tmp_path / "AGENTS.md"
-    head, _, tail = guide.read_text().partition("\n## This app")
-    guide.write_text(head + "\nstale line\n" + "\n## This app" + tail)
+    head, _, tail = guide.read_text().partition("\n<!-- END stario-create -->")
+    guide.write_text(head + "\nstale line\n" + "\n<!-- END stario-create -->" + tail)
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "AGENTS.md" in out.stdout
@@ -266,10 +324,10 @@ def test_cli_sync_check_detects_missing_cloud_env(tmp_path: Path):
 
 def test_cli_sync_check_detects_missing_link(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
-    (tmp_path / ".claude/skills/stario-auth").unlink()
+    (tmp_path / ".claude/skills/stario-accounts").unlink()
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
-    assert ".claude/skills/stario-auth" in out.stdout
+    assert ".claude/skills/stario-accounts" in out.stdout
 
 
 def test_cli_sync_api_profile(tmp_path: Path):
@@ -379,23 +437,22 @@ def test_scaffold_writes_test_js(tmp_path: Path):
 
 def test_scaffold_shell_loads_scripts(tmp_path: Path):
     scaffold_files(tmp_path, "demo")
-    assets = (tmp_path / "app/assets.py").read_text()
-    assert "SCRIPTS" in assets
-    shell = (tmp_path / "app/common/shell.py").read_text()
+    shell = (tmp_path / "app/layout.py").read_text()
+    assert "SCRIPTS" in shell
     assert 'h.Script({"src": src, "defer": True}) for src in SCRIPTS' in shell
     assert "ModuleScript(DATASTAR_JS)" in shell
     assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")
 
 
 def test_tailwind_shell_loads_scripts_before_datastar():
-    shell = template("kits/tailwind/app/common/shell.py").read_text()
+    shell = template("kits/tailwind/app/layout.py").read_text()
     assert "for src in SCRIPTS" in shell
     assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")
 
 
 def test_baked_page_loads_scripts_before_datastar(tmp_path: Path):
     scaffold_files(tmp_path, "demo")
-    assets = tmp_path / "app/assets.py"
+    assets = tmp_path / "app/layout.py"
     assets.write_text(
         assets.read_text().replace(
             "SCRIPTS: tuple[str, ...] = ()",
@@ -408,7 +465,7 @@ def test_baked_page_loads_scripts_before_datastar(tmp_path: Path):
     try:
         from stario import h
 
-        page = importlib.import_module("app.common.shell").page
+        page = importlib.import_module("app.layout").page
         html = page("Hi", h.P("x")).rendered
         script = html.index('src="/static/js/theme.js"')
         module = html.index('type="module"')
@@ -445,3 +502,14 @@ def test_js_checker_requires_each_call(tmp_path: Path):
     share = tmp_path / "static/js/share.js"
     share.write_text("window.app ??= {};\napp.share = {\n  copy(url, done) {}\n};\n")
     check()
+
+
+def test_major_tracks_the_stario_major():
+    # The version scheme (README "Versions"): the major is the Stario major the kit targets,
+    # and the scaffold's pin covers exactly that major.
+    from stario_create import TRACKS_STARIO, __version__
+    from stario_create.scaffold import STARIO_REQ
+
+    assert __version__.split(".")[0] == TRACKS_STARIO
+    assert f">={TRACKS_STARIO}." in STARIO_REQ
+    assert STARIO_REQ.endswith(f"<{int(TRACKS_STARIO) + 1}")

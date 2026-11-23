@@ -1,0 +1,52 @@
+import os
+import secrets
+from dataclasses import dataclass, fields, replace
+from pathlib import Path
+from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class Config:
+    """Every setting and secret. A new setting is one field with a default.
+
+    `from_env` reads each field from the env var of the same name in capitals
+    (`app_version` from `APP_VERSION`) and casts it to the type of the default.
+    """
+
+    app_name: str = "$app_name"
+    # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
+    data_dir: Path = Path("data")
+    # The database file from DATABASE_PATH; empty: data_dir / "app.sqlite3".
+    database_path: str = ""
+    # Signs the session cookie. Unset: a random key kept in data_dir/session.key.
+    session_secret: str = ""
+    # Plain HTTP on a laptop: the session cookie drops Secure.
+    app_dev: bool = False
+
+    @property
+    def db_path(self) -> Path:
+        return Path(self.database_path) if self.database_path else self.data_dir / "app.sqlite3"
+
+    @classmethod
+    def from_env(cls) -> Config:
+        values: dict[str, Any] = {}
+        for f in fields(cls):
+            raw = os.environ.get("PROJECT_DATA_DIR" if f.name == "data_dir" else f.name.upper())
+            if raw is None:
+                continue
+            if isinstance(f.default, bool):
+                values[f.name] = raw.lower() in ("1", "true", "yes")
+            else:
+                convert: Any = type(f.default)  # str, int, float or Path
+                values[f.name] = convert(raw)
+        config = cls(**values)
+        config.data_dir.mkdir(parents=True, exist_ok=True)
+        if not config.session_secret:
+            key = config.data_dir / "session.key"
+            if not key.is_file():
+                key.write_text(secrets.token_urlsafe(48))
+                key.chmod(0o600)
+            config = replace(config, session_secret=key.read_text().strip())
+        if len(config.session_secret) < 32:
+            raise RuntimeError("Set SESSION_SECRET to 32+ random characters.")
+        return config

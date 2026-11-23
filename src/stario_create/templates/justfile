@@ -1,4 +1,4 @@
-# `just` lists the targets. Install: uv tool install rust-just
+# `just` lists the targets. Install: uv tool install rust-just. Every recipe is a plain command.
 
 set shell := ["bash", "-uo", "pipefail", "-c"]
 
@@ -15,12 +15,16 @@ dev:
 serve:
     uv run python -m app.main
 
-# format, fix lint, typecheck, test - run before done; prints only problems
+# format, fix lint, typecheck, test (with the Stario lint); runs every step, prints only problems.
+# Without just: uvx stario-create@latest check
 check:
-    @uv run ruff format -q .
-    @uv run ruff check -q --fix .
-    @uv run pyrefly check 2>&1 | { grep -v ' INFO ' || true; }
-    @uv run pytest -q --no-header
+    #!/usr/bin/env bash
+    status=0
+    uv run ruff format -q . || status=1
+    uv run ruff check -q --fix . || status=1
+    uv run pyrefly check 2>&1 | grep -v ' INFO '; [ "${PIPESTATUS[0]}" = 0 ] || status=1
+    uv run pytest -q --no-header || status=1
+    exit $status
 
 # the same checks without changes, for CI
 ci:

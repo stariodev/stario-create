@@ -7,6 +7,8 @@ already holds the target content counts as kept, not created.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -16,16 +18,64 @@ from collections.abc import Iterable
 from pathlib import Path
 from string import Template
 
-from stario_create.data import guide_text, profile_skills, resource, skill_names, template
+from stario_create.data import (
+    guide_text,
+    profile_skills,
+    resource,
+    skill_files,
+    skill_names,
+    template,
+)
 
-STARIO_REQ = "stario>=5.4.0,<6"
+STARIO_REQ = "stario>=5.8.0,<6"  # the skills are verified against 5.8
+LITEWRITER_REQ = "litewriter>=0.3.3,<0.4"
 DEV_REQS = ["ruff", "pyrefly", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _THIS_APP = "\n## This app"
+# The kit's part of AGENTS.md sits between these lines; `sync` replaces only that part.
+BEGIN = "<!-- BEGIN stario-create -->"
+END = "<!-- END stario-create -->"
+_GUIDE_TITLE = "# Stario app guide"
+_PACKAGE = Path(__file__).resolve().parent
+# Tool-owned test files: written by `new` and `add pages`, refreshed by `sync`.
+GENERATED_TESTS = {
+    "tests/_pagecheck.py": "templates/tests/_pagecheck.py",
+    "tests/_lint.py": "lint.py",
+}
+# Skills of earlier kits: `sync` removes them, so an app does not keep two guides to one topic,
+# unless a file in one differs from every released copy (`retired_skills.json`): then it is kept.
+RETIRED_SKILLS = (
+    "stario-api",
+    "stario-auth",
+    "stario-browser-check",
+    "stario-client",
+    "stario-datastar",
+    "stario-feature",
+    "stario-jobs",
+    "stario-litewriter",
+    "stario-relay",
+    "stario-tailwind-daisyui",
+    "stario-view",
+)
+
+
+def _edited_retired(agents_dir: Path, name: str) -> bool:
+    """True when a file under a retired skill differs from every copy a release shipped."""
+    if name not in RETIRED_SKILLS or not agents_dir.is_dir():
+        return False
+    shipped = set(json.loads(RETIRED_TABLE.read_text()).get(name, []))
+    return any(
+        hashlib.sha256(f.read_bytes()).hexdigest() not in shipped
+        for f in agents_dir.rglob("*")
+        if f.is_file()
+    )
+
+
 _RULE_LIMIT = 16_000  # Devin and others cut an always-on rule file here
 _NOTES_LIMIT = 4_000  # the `## This app` notes; past this, move a topic to its own file
 _VENDOR = Path(__file__).resolve().parent / "vendor"
+RETIRED_TABLE = Path(__file__).resolve().parent / "retired_skills.json"
 
 
 class ScaffoldError(Exception):
@@ -82,10 +132,74 @@ def _fill(name: str, **subs: str) -> str:
     return Template(template(name).read_text()).safe_substitute(subs)
 
 
+def app_name_for(root: Path) -> str:
+    """A snake_case app name from a directory name: `My App` -> `my_app`."""
+    name = re.sub(r"[^a-z0-9_]+", "_", root.resolve().name.lower()).strip("_") or "app"
+    return name if name[0].isalpha() else f"app_{name}"
+
+
+def guide_above(root: Path) -> Path | None:
+    """An AGENTS.md above root that already is the Stario guide, else None.
+
+    An app scaffolded inside a repo whose root has the guide (and the skills)
+    gets no second copy: the agent already reads the one above.
+    """
+    for parent in root.resolve().parents:
+        path = parent / "AGENTS.md"
+        if path.is_file():
+            text = path.read_text()
+            if BEGIN in text or text.startswith(_GUIDE_TITLE):
+                return path
+    return None
+
+
+def generated_text(rel: str) -> str:
+    """The text of a tool-owned test file: 'tests/_pagecheck.py' or 'tests/_lint.py'."""
+    return (_PACKAGE / GENERATED_TESTS[rel]).read_text()
+
+
+def sync_generated_tests(root: Path) -> list[str]:
+    """Rewrite the tool-owned test files of an app that uses them. Returns the paths written."""
+    pages = root / "tests" / "test_pages.py"
+    if not pages.is_file() or "tests._pagecheck" not in pages.read_text():
+        return []
+    written: list[str] = []
+    for rel in GENERATED_TESTS:
+        path, text = root / rel, generated_text(rel)
+        if not path.is_file() or path.read_text() != text:
+            path.write_text(text)
+            written.append(str(path))
+    return written
+
+
+def sync_claude(root: Path) -> str | None:
+    """Make CLAUDE.md load AGENTS.md (`@AGENTS.md`). Returns the path, or None if current.
+
+    Claude Code reads CLAUDE.md; the import line keeps one guide for every agent, and a
+    project's own CLAUDE.md text stays below it.
+    """
+    path = root / "CLAUDE.md"
+    text = path.read_text() if path.is_file() else ""
+    if "@AGENTS.md" in text.splitlines():
+        return None
+    path.write_text("@AGENTS.md\n" + (f"\n{text}" if text else ""))
+    return str(path)
+
+
 def scaffold_files(
-    root: Path, app_name: str, *, force: bool = False, orjson: bool = False
+    root: Path,
+    app_name: str,
+    *,
+    force: bool = False,
+    orjson: bool = False,
+    db: bool = False,
+    agent_files: bool = True,
 ) -> list[str]:
-    """Write the app tree under root. Returns the files written."""
+    """Write the app tree under root. Returns the files written.
+
+    `db` opens a litewriter database in `bootstrap`. `agent_files=False`
+    skips AGENTS.md, the skills, and the Cloud Agent files.
+    """
     created: list[str] = []
 
     def w(rel: str, text: str) -> None:
@@ -93,18 +207,16 @@ def scaffold_files(
 
     w("app/__init__.py", "")
     w("app/config.py", _fill("app/config.py.tmpl", app_name=app_name))
-    w("app/assets.py", _fill("app/assets.py.tmpl"))
-    w("app/common/__init__.py", "")
-    w("app/common/shell.py", _fill("app/common/shell.py.tmpl"))
-    w("app/features/__init__.py", "")
-    w("app/features/home/__init__.py", "")
-    w("app/features/home/urls.py", _fill("app/features/home/urls.py.tmpl"))
-    w("app/features/home/views.py", _fill("app/features/home/views.py.tmpl"))
-    w("app/features/home/handlers.py", _fill("app/features/home/handlers.py.tmpl"))
+    w("app/layout.py", _fill("app/layout.py.tmpl"))
+    w("app/urls.py", _fill("app/urls.py.tmpl"))
+    if db:
+        w("app/data.py", _fill("app/data.py.tmpl"))
+    w("app/pages/__init__.py", "")
+    w("app/pages/home.py", _fill("app/pages/home.py.tmpl"))
     w(
         "app/main.py",
         _fill(
-            "app/main.py.tmpl",
+            "app/main_db.py.tmpl" if db else "app/main.py.tmpl",
             orjson_import="\nimport orjson" if orjson else "",
             json_import=", json" if orjson else "",
             codec="    json.set_codec(orjson.dumps, orjson.loads)\n" if orjson else "",
@@ -120,18 +232,22 @@ def scaffold_files(
 
     w("tests/__init__.py", "")
     w("tests/conftest.py", _fill("tests/conftest.py.tmpl"))
-    w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
     w("tests/test_js.py", _fill("tests/test_js.py.tmpl"))
     w("tests/test_pages.py", template("tests/test_pages.py").read_text())
+    for rel in GENERATED_TESTS:
+        w(rel, generated_text(rel))
 
     w("justfile", template("justfile").read_text())
     w(".dockerignore", template("dockerignore").read_text())
-    created.extend(sync_cloud_env(root, force=force))
-
-    guide = sync_guide(root, force=force)
-    if guide is not None:
-        created.append(guide)
-    created.extend(sync_skill_files(root, force=force))
+    if agent_files:
+        created.extend(sync_cloud_env(root, force=force))
+        guide = sync_guide(root, force=force)
+        if guide is not None:
+            created.append(guide)
+        claude = sync_claude(root)
+        if claude is not None:
+            created.append(claude)
+        created.extend(sync_skill_files(root, force=force))
 
     _append_once(root / ".gitignore", "*.sqlite3*", created)
     _append_once(root / ".gitignore", "data/", created)
@@ -222,9 +338,12 @@ def sync_guide(root: Path, *, force: bool = False) -> str | None:
     """
     path = root / "AGENTS.md"
     bundled = guide_text(profile(root))
+    kit = bundled[: bundled.index(END) + len(END)]
     if path.exists():
         text = path.read_text()
-        if _THIS_APP in text:
+        if BEGIN in text and END in text:
+            target = text[: text.index(BEGIN)] + kit + text[text.index(END) + len(END) :]
+        elif _THIS_APP in text:
             target = bundled.split(_THIS_APP)[0] + _THIS_APP + text.split(_THIS_APP, 1)[1]
         elif force:
             target = bundled
@@ -253,20 +372,32 @@ def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
     written: list[str] = []
     wanted = profile_skills(profile(root))
     for name in wanted:
-        dest = root / ".agents" / "skills" / name / "SKILL.md"
-        text = resource(f"skills/{name}/SKILL.md").read_text()
-        if dest.is_file() and dest.read_text() == text:
-            continue
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(text)
-        written.append(str(dest))
+        files = skill_files(name)
+        for rel in files:
+            dest = root / ".agents" / "skills" / name / rel
+            text = resource(f"skills/{name}/{rel}").read_text()
+            if dest.is_file() and dest.read_text() == text:
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(text)
+            written.append(str(dest))
+        refs = root / ".agents" / "skills" / name / "references"
+        for old in sorted(refs.glob("*.md")) if refs.is_dir() else []:
+            if f"references/{old.name}" not in files:
+                old.unlink()
+                written.append(f"removed {old.relative_to(root).as_posix()}")
     written.extend(link_skills(root, wanted, force=force))
-    for name in skill_names():
+    for name in [*skill_names(), *RETIRED_SKILLS]:
         if name in wanted:
             continue
         agents_dir = root / ".agents" / "skills" / name
         link = root / ".claude" / "skills" / name
         if not agents_dir.exists() and not link.is_symlink() and not link.exists():
+            continue
+        if _edited_retired(agents_dir, name):
+            written.append(
+                f"kept .agents/skills/{name} (retired, but edited here: delete it by hand)"
+            )
             continue
         if link.is_symlink() or link.is_file():
             link.unlink()
@@ -347,11 +478,18 @@ def stale_files(root: Path) -> list[str]:
     """Paths that differ from the bundle. Empty means the app is in sync."""
     stale: list[str] = []
     prof = profile(root)
-    bundled_head = guide_text(prof).split(_THIS_APP)[0].strip()
+    bundled = guide_text(prof)
     path = root / "AGENTS.md"
-    local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
-    if local_head != bundled_head:
+    local = path.read_text() if path.exists() else ""
+    if BEGIN in local and END in local:
+        current = local[local.index(BEGIN) : local.index(END)] == bundled[: bundled.index(END)]
+    else:
+        current = local.split(_THIS_APP)[0].strip() == bundled.split(_THIS_APP)[0].strip()
+    if not current:
         stale.append("AGENTS.md")
+    claude = root / "CLAUDE.md"
+    if not claude.is_file() or "@AGENTS.md" not in claude.read_text().splitlines():
+        stale.append("CLAUDE.md (no @AGENTS.md line)")
     if path.exists() and (size := len(path.read_bytes())) > _RULE_LIMIT:
         stale.append(f"AGENTS.md ({size} bytes; rule loaders cut at {_RULE_LIMIT})")
     if not (root / _CLOUD_ENV_JSON).is_file():
@@ -363,24 +501,34 @@ def stale_files(root: Path) -> list[str]:
     ):
         stale.append(_CLOUD_INSTALL)
     wanted = profile_skills(prof)
-    for name in skill_names():
+    for name in [*skill_names(), *RETIRED_SKILLS]:
         if name not in wanted:
             agents_dir = root / ".agents" / "skills" / name
             link = root / ".claude" / "skills" / name
             if agents_dir.exists() or link.exists() or link.is_symlink():
-                stale.append(f".agents/skills/{name} (not in profile {prof})")
+                why = "retired" if name in RETIRED_SKILLS else f"not in profile {prof}"
+                if _edited_retired(agents_dir, name):
+                    why = "retired, edited here: delete it by hand"
+                stale.append(f".agents/skills/{name} ({why})")
             continue
-        dest = root / ".agents" / "skills" / name / "SKILL.md"
-        if (
-            not dest.is_file()
-            or dest.read_text() != resource(f"skills/{name}/SKILL.md").read_text()
-        ):
-            stale.append(f".agents/skills/{name}/SKILL.md")
+        for rel in skill_files(name):
+            dest = root / ".agents" / "skills" / name / rel
+            if (
+                not dest.is_file()
+                or dest.read_text() != resource(f"skills/{name}/{rel}").read_text()
+            ):
+                stale.append(f".agents/skills/{name}/{rel}")
         link = root / ".claude" / "skills" / name
         if not link.is_symlink() or os.readlink(link) != os.path.join(
             "..", "..", ".agents", "skills", name
         ):
             stale.append(f".claude/skills/{name}")
+    pages = root / "tests" / "test_pages.py"
+    if pages.is_file() and "tests._pagecheck" in pages.read_text():
+        for rel in GENERATED_TESTS:
+            gen = root / rel
+            if not gen.is_file() or gen.read_text() != generated_text(rel):
+                stale.append(rel)
     stale.extend(_git_ignored(root, wanted))
     check = _check_recipe(root)
     if check is not None:
