@@ -276,7 +276,9 @@ def test_cli_sync_warns_about_long_app_notes(tmp_path: Path):
     guide = tmp_path / "AGENTS.md"
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert "warning" not in out.stderr
-    guide.write_text(guide.read_text() + "note\n" * 810)
+    text = guide.read_text()
+    section = len(text.partition("## This app")[2].encode()) + len("## This app")
+    guide.write_text(text + "n" * (4001 - section))  # one byte past the 4000 budget
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 0, out.stdout
     assert "'## This app' is" in out.stderr

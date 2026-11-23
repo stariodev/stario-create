@@ -4,6 +4,7 @@ The page check behind tests/test_pages.py: each HTML page that a link or a GET r
 app/urls.py reaches. A failure names the page and the problem.
 """
 
+import asyncio
 import importlib
 import json
 import re
@@ -132,6 +133,17 @@ async def stream_problems(client, url: str, page: Page) -> list[str]:
 OUTSIDE = re.compile(r"Connect|Timeout|gaierror|RemoteProtocol|NetworkError|OSError")
 
 
+async def fetch(client, url: str):
+    """GET url once its trace has finished: a page that caught an error and answered 5xx
+    ends its span just after the answer, and `failure` reads that span."""
+    r = await client.get(url)
+    for _ in range(100):
+        if not r.span_id or client.tracer.get_span(r.span_id) is not None:
+            break
+        await asyncio.sleep(0.001)
+    return r
+
+
 def failure(client, r) -> str:
     """'TypeName: message' of the exception behind a 5xx answer, else ''."""
     span = client.tracer.get_span(r.span_id) if r.span_id else None
@@ -148,7 +160,7 @@ def needs_outside_service(client, r) -> bool:
 
 async def check(client, url: str) -> list[str]:
     """The problems of one page. Empty when the page is not HTML."""
-    r = await client.get(url)
+    r = await fetch(client, url)
     if needs_outside_service(client, r):
         return []
     if r.status_code >= 500:
@@ -177,7 +189,7 @@ async def html_routes(client) -> list[str]:
 
 async def check_every_page(client) -> None:
     """Fail with every problem of every page that "/" and app/urls.py reach."""
-    home = await client.get("/")
+    home = await fetch(client, "/")
     if needs_outside_service(client, home):
         pytest.skip(f"/ needs a service that is not running ({failure(client, home)})")
     assert home.status_code < 400, f"/ answers {home.status_code} {failure(client, home)}"

@@ -59,8 +59,18 @@ PLAN = (
 SUITE = "\n\nThe task ships an acceptance suite (`npm test`) that checks the result."
 ANSWER = "\n\nAnswer from this app's guidance. Do not create or edit any file. Reply briefly."
 
-READ_ONLY = ["Read", "Glob", "Grep", "Skill", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)",
-             "Bash(head:*)", "Bash(find:*)", "Bash(wc:*)"]
+READ_ONLY = [
+    "Read",
+    "Glob",
+    "Grep",
+    "Skill",
+    "Bash(ls:*)",
+    "Bash(cat:*)",
+    "Bash(grep:*)",
+    "Bash(head:*)",
+    "Bash(find:*)",
+    "Bash(wc:*)",
+]
 NO_WRITE = ["Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task", "Agent"]
 SKILL_PATH = re.compile(r"skills/(stario-[a-z-]+)/(SKILL\.md|references/([\w.-]+))")
 
@@ -79,16 +89,42 @@ def base_app(kit: Path) -> Path:
     dest = CACHE / f"base-{kit_hash(kit)}"
     if (dest / "app" / "AGENTS.md").exists():
         return dest / "app"
-    tmp = Path(tempfile.mkdtemp(prefix="base-", dir=CACHE.mkdir(parents=True, exist_ok=True) or CACHE))
+    tmp = Path(
+        tempfile.mkdtemp(prefix="base-", dir=CACHE.mkdir(parents=True, exist_ok=True) or CACHE)
+    )
     subprocess.run(
-        ["uvx", "--no-cache", "--from", str(kit), "stario-create", "new", "app", "--db", "--no-verify"],
-        cwd=tmp, check=True, stdout=subprocess.DEVNULL,
+        [
+            "uvx",
+            "--no-cache",
+            "--from",
+            str(kit),
+            "stario-create",
+            "new",
+            "app",
+            "--db",
+            "--no-verify",
+        ],
+        cwd=tmp,
+        check=True,
+        stdout=subprocess.DEVNULL,
     )
     shutil.rmtree(tmp / "app" / ".venv", ignore_errors=True)
     subprocess.run(["git", "init", "-q"], cwd=tmp / "app", check=True)
     subprocess.run(["git", "add", "-A"], cwd=tmp / "app", check=True)
-    subprocess.run(["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
-                    "commit", "-qm", "scaffold"], cwd=tmp / "app", check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=probe",
+            "-c",
+            "user.email=probe@example.invalid",
+            "commit",
+            "-qm",
+            "scaffold",
+        ],
+        cwd=tmp / "app",
+        check=True,
+    )
     if dest.exists():
         shutil.rmtree(dest)
     tmp.rename(dest)
@@ -98,11 +134,23 @@ def base_app(kit: Path) -> Path:
 def clean_env(tmpdir: Path) -> dict[str, str]:
     claude = shutil.which("claude") or "claude"
     uv = shutil.which("uv") or "uv"
-    path = [str(Path(claude).resolve().parent), str(Path(uv).parent), "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    path = [
+        str(Path(claude).resolve().parent),
+        str(Path(uv).parent),
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+    ]
     return {
-        "HOME": str(Path.home()), "USER": os.environ.get("USER", ""), "LANG": "en_US.UTF-8",
-        "SHELL": "/bin/bash", "TERM": "xterm-256color", "TMPDIR": str(tmpdir),
-        "PATH": ":".join(dict.fromkeys(path)), "DISABLE_AUTOUPDATER": "1",
+        "HOME": str(Path.home()),
+        "USER": os.environ.get("USER", ""),
+        "LANG": "en_US.UTF-8",
+        "SHELL": "/bin/bash",
+        "TERM": "xterm-256color",
+        "TMPDIR": str(tmpdir),
+        "PATH": ":".join(dict.fromkeys(path)),
+        "DISABLE_AUTOUPDATER": "1",
     }
 
 
@@ -128,7 +176,13 @@ def parse_stream(lines: list[str]) -> dict:
                 name, inp = b["name"], b.get("input", {})
                 tools.append(name)
                 if name == "Skill":
-                    loads.append({"skill": str(inp.get("skill", "")).split(":")[-1], "ref": None, "step": step})
+                    loads.append(
+                        {
+                            "skill": str(inp.get("skill", "")).split(":")[-1],
+                            "ref": None,
+                            "step": step,
+                        }
+                    )
                     continue
                 text = json.dumps(inp)
                 for m in SKILL_PATH.finditer(text):
@@ -139,7 +193,13 @@ def parse_stream(lines: list[str]) -> dict:
                     reads.append("$ " + str(inp.get("command", ""))[:200])
         elif e.get("type") == "result":
             result = e
-    return {"loads": loads, "reads": reads, "tools": tools, "steps": len(step_ids), "result": result}
+    return {
+        "loads": loads,
+        "reads": reads,
+        "tools": tools,
+        "steps": len(step_ids),
+        "result": result,
+    }
 
 
 CODE_BLOCK = re.compile(r"```[^\n]*\n(.*?)```", re.S)
@@ -185,28 +245,58 @@ def run_case(case: dict, i: int, args, base: Path, out: Path) -> dict:
         )
     prompt = case["prompt"] + suite + (PLAN if mode == "plan" else ANSWER)
     cmd = [
-        "claude", "-p", prompt, "--model", args.model,
-        "--output-format", "stream-json", "--verbose",
-        "--setting-sources", "project", "--strict-mcp-config", "--no-session-persistence",
-        "--max-turns", str(case.get("max_turns", args.max_turns)),
-        "--allowedTools", *READ_ONLY, "--disallowedTools", *NO_WRITE,
+        "claude",
+        "-p",
+        prompt,
+        "--model",
+        args.model,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--no-session-persistence",
+        "--max-turns",
+        str(case.get("max_turns", args.max_turns)),
+        "--allowedTools",
+        *READ_ONLY,
+        "--disallowedTools",
+        *NO_WRITE,
     ]
     if args.effort:
         cmd += ["--effort", args.effort]
     t0 = time.time()
-    proc = subprocess.run(cmd, cwd=work, env=clean_env(work_root / "tmp"), capture_output=True, text=True,
-                          timeout=args.timeout)
+    proc = subprocess.run(
+        cmd,
+        cwd=work,
+        env=clean_env(work_root / "tmp"),
+        capture_output=True,
+        text=True,
+        timeout=args.timeout,
+    )
     secs = round(time.time() - t0, 1)
     lines = proc.stdout.splitlines()
     parsed = parse_stream(lines)
     g = grade(case, parsed)
-    changed = subprocess.run(["git", "status", "--porcelain"], cwd=work, capture_output=True, text=True).stdout
+    changed = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=work, capture_output=True, text=True
+    ).stdout
     res = parsed["result"]
     rec = {
-        "id": case["id"], "i": i, "model": args.model, "mode": mode, **g,
-        "loads": parsed["loads"], "reads": parsed["reads"], "steps": parsed["steps"],
-        "turns": res.get("num_turns"), "cost": res.get("total_cost_usd", 0.0), "secs": secs,
-        "changed_files": changed.strip().splitlines(), "reply": res.get("result", ""),
+        "id": case["id"],
+        "i": i,
+        "model": args.model,
+        "mode": mode,
+        **g,
+        "loads": parsed["loads"],
+        "reads": parsed["reads"],
+        "steps": parsed["steps"],
+        "turns": res.get("num_turns"),
+        "cost": res.get("total_cost_usd", 0.0),
+        "secs": secs,
+        "changed_files": changed.strip().splitlines(),
+        "reply": res.get("result", ""),
         "stderr": proc.stderr[-2000:],
     }
     name = f"{case['id']}-{i}"
@@ -214,8 +304,11 @@ def run_case(case: dict, i: int, args, base: Path, out: Path) -> dict:
     (out / f"{name}.json").write_text(json.dumps(rec, indent=1))
     shutil.rmtree(work_root, ignore_errors=True)
     mark = "ok  " if rec["pass"] else "FAIL"
-    print(f"{mark} {name:28} ${rec['cost']:.3f} {rec['steps']:>2} steps  loaded={','.join(rec['loaded']) or '-'}"
-          + ("" if rec["pass"] else "  " + "; ".join(rec["fails"])), flush=True)
+    print(
+        f"{mark} {name:28} ${rec['cost']:.3f} {rec['steps']:>2} steps  loaded={','.join(rec['loaded']) or '-'}"
+        + ("" if rec["pass"] else "  " + "; ".join(rec["fails"])),
+        flush=True,
+    )
     return rec
 
 
@@ -237,11 +330,15 @@ def report(out: Path) -> str:
     by: dict[str, list[dict]] = {}
     for r in recs:
         by.setdefault(r["id"], []).append(r)
-    lines = [f"# Probe: {meta.get('cases', '?')} on {meta.get('model', '?')}", "",
-             f"Kit {meta.get('kit', '?')} ({meta.get('kit_hash', '?')}), {len(recs)} runs, "
-             f"pass {sum(r['pass'] for r in recs)}/{len(recs)}, cost ${sum(r['cost'] for r in recs):.2f}.", "",
-             "| case | pass | median $ | steps | skills loaded (count over runs) | failures |",
-             "|---|---|---:|---:|---|---|"]
+    lines = [
+        f"# Probe: {meta.get('cases', '?')} on {meta.get('model', '?')}",
+        "",
+        f"Kit {meta.get('kit', '?')} ({meta.get('kit_hash', '?')}), {len(recs)} runs, "
+        f"pass {sum(r['pass'] for r in recs)}/{len(recs)}, cost ${sum(r['cost'] for r in recs):.2f}.",
+        "",
+        "| case | pass | median $ | steps | skills loaded (count over runs) | failures |",
+        "|---|---|---:|---:|---|---|",
+    ]
     for cid, rs in by.items():
         rs.sort(key=lambda r: r["i"])
         costs = sorted(r["cost"] for r in rs)
@@ -269,7 +366,10 @@ def report(out: Path) -> str:
         allowed = set().union(*wanted) if wanted else set()
         extra += len(set(r["loaded"]) - allowed - set(case_skills.get("ok_skills", [])))
     if exp_total:
-        lines += ["", f"Routing: {hit}/{exp_total} expected loads happened; {extra} loads no case asked for."]
+        lines += [
+            "",
+            f"Routing: {hit}/{exp_total} expected loads happened; {extra} loads no case asked for.",
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -289,9 +389,16 @@ def graded(out: Path) -> tuple[dict, dict[str, list[dict]]]:
             continue
         r = json.loads(p.read_text())
         if r["id"] in cases:
-            r.update(grade(cases[r["id"]], {"loads": r["loads"], "result": {"result": r["reply"], "is_error": False}}))
+            r.update(
+                grade(
+                    cases[r["id"]],
+                    {"loads": r["loads"], "result": {"result": r["reply"], "is_error": False}},
+                )
+            )
             case = cases[r["id"]]
-            allowed = set().union(*[set(w.split("|")) for w in case.get("skills", [])]) | set(case.get("ok_skills", []))
+            allowed = set().union(*[set(w.split("|")) for w in case.get("skills", [])]) | set(
+                case.get("ok_skills", [])
+            )
             r["waste"] = sorted(set(r["loaded"]) - allowed)
         by.setdefault(r["id"], []).append(r)
     return cases, by
@@ -300,8 +407,12 @@ def graded(out: Path) -> tuple[dict, dict[str, list[dict]]]:
 def compare(base: Path, new: Path) -> str:
     _, a = graded(base)
     cases, b = graded(new)
-    lines = [f"# {base.name} -> {new.name}", "",
-             "| case | pass | wasted loads per run | median $ | wasted skills (new) |", "|---|---|---|---|---|"]
+    lines = [
+        f"# {base.name} -> {new.name}",
+        "",
+        "| case | pass | wasted loads per run | median $ | wasted skills (new) |",
+        "|---|---|---|---|---|",
+    ]
     tot = {"pa": 0, "pb": 0, "na": 0, "nb": 0, "wa": 0, "wb": 0, "ca": 0.0, "cb": 0.0}
     for cid in cases:
         ra, rb = a.get(cid, []), b.get(cid, [])
@@ -315,19 +426,31 @@ def compare(base: Path, new: Path) -> str:
         for r in rb:
             for w in r["waste"]:
                 waste[w] = waste.get(w, 0) + 1
-        lines.append(f"| {cid} | {pa}/{len(ra)} -> {pb}/{len(rb)} | {wa / len(ra):.1f} -> {wb / len(rb):.1f} | "
-                     f"{ca:.3f} -> {cb:.3f} | {', '.join(f'{k} {v}' for k, v in sorted(waste.items()))} |")
-        tot["pa"] += pa; tot["pb"] += pb; tot["na"] += len(ra); tot["nb"] += len(rb)
-        tot["wa"] += wa; tot["wb"] += wb
-        tot["ca"] += sum(r["cost"] for r in ra); tot["cb"] += sum(r["cost"] for r in rb)
-    lines += ["", f"Pass {tot['pa']}/{tot['na']} -> {tot['pb']}/{tot['nb']}; wasted loads per run "
-              f"{tot['wa'] / max(tot['na'], 1):.2f} -> {tot['wb'] / max(tot['nb'], 1):.2f}; "
-              f"mean $ per run {tot['ca'] / max(tot['na'], 1):.4f} -> {tot['cb'] / max(tot['nb'], 1):.4f}."]
+        lines.append(
+            f"| {cid} | {pa}/{len(ra)} -> {pb}/{len(rb)} | {wa / len(ra):.1f} -> {wb / len(rb):.1f} | "
+            f"{ca:.3f} -> {cb:.3f} | {', '.join(f'{k} {v}' for k, v in sorted(waste.items()))} |"
+        )
+        tot["pa"] += pa
+        tot["pb"] += pb
+        tot["na"] += len(ra)
+        tot["nb"] += len(rb)
+        tot["wa"] += wa
+        tot["wb"] += wb
+        tot["ca"] += sum(r["cost"] for r in ra)
+        tot["cb"] += sum(r["cost"] for r in rb)
+    lines += [
+        "",
+        f"Pass {tot['pa']}/{tot['na']} -> {tot['pb']}/{tot['nb']}; wasted loads per run "
+        f"{tot['wa'] / max(tot['na'], 1):.2f} -> {tot['wb'] / max(tot['nb'], 1):.2f}; "
+        f"mean $ per run {tot['ca'] / max(tot['na'], 1):.4f} -> {tot['cb'] / max(tot['nb'], 1):.4f}.",
+    ]
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("cases", nargs="?")
     ap.add_argument("--model", default="claude-haiku-5-5")
     ap.add_argument("--effort", default="high", help="'' for the model default")
@@ -340,8 +463,13 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=HERE / "runs" / "probe")
     ap.add_argument("--work", default=None, help="parent dir for the throwaway apps")
     ap.add_argument("--report", type=Path, help="print the summary of an earlier run dir")
-    ap.add_argument("--compare", type=Path, nargs=2, metavar=("BASE", "NEW"),
-                    help="two run dirs of the same cases: pass, loads, waste and cost per case")
+    ap.add_argument(
+        "--compare",
+        type=Path,
+        nargs=2,
+        metavar=("BASE", "NEW"),
+        help="two run dirs of the same cases: pass, loads, waste and cost per case",
+    )
     args = ap.parse_args()
     if args.report:
         print(report(args.report))
@@ -351,7 +479,11 @@ def main() -> None:
         return
     if not args.cases:
         ap.error("cases is required")
-    cases = [json.loads(x) for x in Path(args.cases).read_text().splitlines() if x.strip() and not x.startswith("//")]
+    cases = [
+        json.loads(x)
+        for x in Path(args.cases).read_text().splitlines()
+        if x.strip() and not x.startswith("//")
+    ]
     if args.only:
         keep = set(args.only.split(","))
         cases = [c for c in cases if c["id"] in keep]
@@ -359,13 +491,27 @@ def main() -> None:
     args.work = args.work or tempfile.mkdtemp(prefix="stario-probe-")
     base = base_app(kit)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    out = args.out / f"{kit.name}-{Path(args.cases).stem}-{args.model.replace('claude-', '')}-{stamp}"
+    out = (
+        args.out / f"{kit.name}-{Path(args.cases).stem}-{args.model.replace('claude-', '')}-{stamp}"
+    )
     out.mkdir(parents=True)
-    (out / "meta.json").write_text(json.dumps({
-        "kit": str(kit), "kit_hash": kit_hash(kit), "model": args.model, "effort": args.effort,
-        "cases": Path(args.cases).name, "n": args.n, "case_list": cases,
-        "claude": subprocess.run(["claude", "--version"], capture_output=True, text=True).stdout.strip(),
-    }, indent=1))
+    (out / "meta.json").write_text(
+        json.dumps(
+            {
+                "kit": str(kit),
+                "kit_hash": kit_hash(kit),
+                "model": args.model,
+                "effort": args.effort,
+                "cases": Path(args.cases).name,
+                "n": args.n,
+                "case_list": cases,
+                "claude": subprocess.run(
+                    ["claude", "--version"], capture_output=True, text=True
+                ).stdout.strip(),
+            },
+            indent=1,
+        )
+    )
     jobs = [(c, i) for i in range(1, args.n + 1) for c in cases]
     with cf.ThreadPoolExecutor(args.jobs) as ex:
         futs = [ex.submit(run_case, c, i, args, base, out) for c, i in jobs]

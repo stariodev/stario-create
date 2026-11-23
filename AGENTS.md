@@ -182,8 +182,9 @@ rewrites it (a second `GET /` raises).
 
 ## Names
 
-- Every HTML tag is `h.<Name>`. Attribute dicts, `classes(...)` and `data.*` come before the
-  children (text, tags, `None`, `*list`). A list of nodes in a variable is `list[HtmlElement]`;
+- Every HTML tag is `h.<Name>`, one capital (`h.Tbody`). Attribute dicts, `classes(...)` (never
+  a dict value) and `data.*` come before the children (text, tags, `None`, `*list`). A list of
+  nodes in a variable is `list[HtmlElement]`;
   a `list[str]` in `data.signals` is spread, `{"tags": [*tags]}`.
   `SafeString(html)` is for trusted HTML only.
 - Request: `c.req.query.get("q", "")`, `.getlist("tag")`, `c.match.params["slug"]` (a `str`),

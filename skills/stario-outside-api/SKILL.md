@@ -5,9 +5,10 @@ description: Call an outside HTTP API from a Stario app - an httpx client opened
 
 # An outside HTTP API
 
-Add the client once: `uv add httpx`. Open one `httpx.AsyncClient` in bootstrap, wrap it in a
-small class with the calls the pages need, and pass that object to the page classes. Never a
-client or a cache at module level (the lint refuses module state): each test gets its own.
+First, in the app folder: `uv add httpx` (the scaffold lacks it; without it `check` fails at
+`import httpx`). Open one `httpx.AsyncClient` in bootstrap, wrap it in a small class with the
+calls the pages need, and pass that object to the page classes. Never a client or a cache at
+module level (the lint refuses module state): each test gets its own.
 
 ```python
 # app/books.py
@@ -67,7 +68,6 @@ the pages. Convert at the edge (`str(...)`, `int(...)`, `.get(key, default)`).
 # app/pages/books.py
 from dataclasses import dataclass
 
-import httpx
 from stario import App, Context, Route, Writer, h
 
 from app.books import Books
@@ -85,20 +85,36 @@ class BooksPage:
 
     async def show(self, c: Context, w: Writer) -> None:
         q = c.req.query.get("q", "").strip()
-        try:
-            found = await self.books.search(q) if q else []
-        except httpx.HTTPError:
-            w.html(page("Books", h.P("The book service does not answer. Try again soon.")), 502)
-            return
+        found = await self.books.search(q) if q else []
         w.html(page("Books", h.Ul(*[h.Li(b.title) for b in found])))
 ```
 
-In bootstrap, next to the database (a Config field `books_url: str = "https://openlibrary.org"`
-reads `BOOKS_URL`):
+A page never catches the service's errors itself: one middleware answers for every page.
 
 ```python
+# app/pages/errors.py
+from stario import Context, Writer, h
+
+from app.layout import page
+
+
+async def service_down(c: Context, w: Writer, exc: BaseException) -> None:
+    """Every page whose service fails: 502 and a notice. The trace keeps the cause."""
+    c.span.exception(exc)  # the page check skips a page whose trace shows a connect error
+    w.html(
+        page("Unavailable", h.P("The book service does not answer. Try again soon.")), status=502
+    )
+```
+
+In bootstrap (a Config field `books_url: str = "https://openlibrary.org"` reads `BOOKS_URL`;
+`catch_errors` is in `stario.http`, `service_down` in `app.pages.errors`):
+
+```python
+app.use("/", same_origin(), security_headers(), catch_errors(httpx.HTTPError, respond=service_down))
+...
 async with http_client(config.books_url) as http:
     BooksPage(Books(http)).register(app)
+    yield
 ```
 
 Data from the service changes: read it at request time and cache in memory for a while; never
@@ -139,6 +155,6 @@ async def test_search_lists_the_titles(offline):
     assert "Dune" in (await offline.get("/books", params={"q": "dune"})).text
 ```
 
-The generated page check skips a page whose service is down (a connect error or a timeout), so
-`check` passes offline. When the task runs a local copy of the service, point the Config field
+The generated page check skips a page whose service is down (a connect error or a timeout in
+its trace), so `check` passes offline. When the task runs a local copy of the service, point the Config field
 at it through its env var.

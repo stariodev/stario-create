@@ -58,7 +58,10 @@ what the kit holds and why.
 - `Config` in the scaffold and both auth kits reads `DATABASE_PATH`; tests and `request` clear
   it.
 - The page check is the generated `tests/_pagecheck.py` and `tests/_lint.py`;
-  `tests/test_pages.py` says not to edit them. A page whose outside service is down is skipped.
+  `tests/test_pages.py` says not to edit them. A page whose outside service is down is skipped,
+  also when the page caught the error and answered 5xx itself (the check waits for its trace).
+- `stario-outside-api`: one `catch_errors(httpx.HTTPError, respond=service_down)` answers 502
+  for every page, and records the cause in the trace; no try/except per page.
 - A new app's ruff config fixes F841 (unused local) and ignores B905.
 - `Config.from_env` passes pyrefly 1.5 (it rejected `type(f.default)(raw)`, so `check` failed in
   every new app).

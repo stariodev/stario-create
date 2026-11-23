@@ -191,6 +191,30 @@ def test_the_page_check_skips_a_page_whose_service_is_down(app: Path):
     assert "needs a service that is not running (ConnectError" in out.stdout
 
 
+def test_the_page_check_skips_a_page_that_caught_its_down_service(app: Path):
+    """A page that answers 502 itself and records the error (skill stario-outside-api)
+    ends its span after the answer: the check waits for it."""
+    home = app / "app/pages/home.py"
+    home.write_text(
+        home.read_text()
+        .replace("import dataclass\n", "import dataclass\n\nimport httpx\n", 1)
+        .replace(
+            "        w.html(render(self.app_name))",
+            "        try:\n"
+            "            async with httpx.AsyncClient() as http:\n"
+            '                await http.get("http://127.0.0.1:9/")\n'
+            "        except httpx.HTTPError as exc:\n"
+            "            c.span.exception(exc)\n"
+            '            w.text("down", status=502)\n'
+            "            return\n"
+            "        w.html(render(self.app_name))",
+        )
+    )
+    out = app_tests(app, "-rs", "tests/test_pages.py")
+    assert out.returncode == 0, out.stdout
+    assert "needs a service that is not running (ConnectError" in out.stdout
+
+
 def test_the_page_check_reports_a_page_that_fails(app: Path):
     home = app / "app/pages/home.py"
     home.write_text(home.read_text().replace("h.H1(app_name),", 'h.H1(app_name, {"id": "x"}),'))

@@ -90,11 +90,13 @@ Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
 
 - `Route("GET //{sub}.example.com/")` routes by host. `Route("POST", BASE + "/send")` joins.
 - `app.add(R, handler, middleware=[mw])` wraps one route; `app.use(prefix, mw1, mw2)` a prefix.
-  A middleware: `def mw(inner: Handler) -> Handler`, returning `async def handler(c, w)`.
+  A middleware: `def mw(inner: Handler) -> Handler` (`from stario import Handler`), returning
+  `async def handler(c, w)`.
 - `c.state` is a per-request dict for middleware results. `c.app.create_task(coro)` runs work
   that shutdown waits for. `c.disconnected` says the client left.
 - Errors: `raise RedirectException(303, url)` from a helper; `catch_errors(MyError,
-  respond=fn)` (`stario.http`) turns an exception into an answer; `app.not_found("/", handler)`
+  respond=fn)` (`stario.http`, `async def fn(c, w, exc: BaseException)`) turns an exception
+  into an answer; `app.not_found("/", handler)`
   is the 404 page; an uncaught exception answers 500 and lands in the trace.
 - Uploads: `with await read_form(c.req, max_size=10_000_000) as form:` then `f = form.file("photo")`;
   `f.filename`, `f.content_type`, `await f.read()`. Serve user files with
