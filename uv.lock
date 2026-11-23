@@ -279,7 +279,7 @@ wheels = [
 
 [[package]]
 name = "stario-create"
-version = "6.0.0.dev2"
+version = "5.13.0"
 source = { editable = "." }
 
 [package.dev-dependencies]

@@ -128,6 +128,16 @@ rest in the seven skills above, and `sync` removes the old folders.
 
 `stario.dev` serves these files: `/AGENTS.md`, `/llms.txt`, `/llms-full.txt` (the guide and the skills in one file), `/skills/`, and `/skills/<name>/SKILL.md`.
 
+## Versions
+
+The major is the Stario major the kit targets: stario-create 5.x scaffolds apps on
+`stario>=5.8,<6`, and a Stario 6 brings stario-create 6.0. The minor moves with every release
+that changes what `new`, `add` or `sync` writes, or the guide and skills, including breaking
+kit changes; an existing app keeps its files until it runs `sync`, and each changelog entry says
+what `sync` changes. The patch is a CLI fix that leaves generated files as they are. Work in
+progress sits under `## Unreleased` in `CHANGELOG.md`; a version number is given only when a
+release is tagged. `stario-create --version` prints both versions.
+
 ## Repo layout
 
 `AGENTS.md`, `llms.txt`, and `skills/` sit at the root. `npx skills`, `stario.dev`, and repo browsing all read them there. The wheel embeds copies under `stario_create/_data/` (hatchling `force-include`), so `uvx` works without a checkout. In a checkout the CLI reads the root files directly, so each file has one canonical copy.

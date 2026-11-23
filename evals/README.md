@@ -68,7 +68,7 @@ the pass rate, the wasted loads per run (a skill no case asked for), and the
 median cost. Read the replies of the cases that changed. A change goes to the
 benchmark only when no case got worse.
 
-What the probes have found so far (5.15.0 → 5.16.0): every routing case loads
+What the probes have found so far (drafts 5.15 → 5.16, before the 5.13.0 release): every routing case loads
 the skill it needs on Haiku; the waste is extra loads (`stario-litewriter` for a
 fresh table, `stario-feature` and `stario-api` "to be safe"). The decision cases
 pass on Opus 81/81 and on Haiku 80/81, so the always-on text is clear; they stay

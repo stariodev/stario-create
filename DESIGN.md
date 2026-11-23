@@ -1,8 +1,8 @@
-# Kit design (6.0)
+# Kit design (5.13)
 
 The kit is `AGENTS.md` (always on), seven skills (loaded on demand) and the `stario-create`
 tools. It was written from the brief in stario-agent-bench `notes/kit-learnings.md`, not from
-the 5.x text. The readers are Haiku 5.5 and Sonnet 5.5 in Claude Code. Cost is steps.
+the earlier text. The readers are Haiku 5.5 and Sonnet 5.5 in Claude Code. Cost is steps.
 
 ## What is always on, and why
 
@@ -86,7 +86,7 @@ no `timeout`. They are one sentence each, next to the step they belong to.
 
 ## Probe cases
 
-`evals/cases/*.jsonl` name the skills of 5.x. The skill names were changed to the 6.0 routing,
+`evals/cases/*.jsonl` named the earlier skills. The skill names were changed to the 5.13 routing,
 and no code pattern was touched:
 
 - `stario-litewriter` → `stario-migrate`; `stario-relay`, `stario-jobs` → `stario-background`;
@@ -113,11 +113,11 @@ Three `decide.jsonl` cases encode 5.x answers this kit changes on purpose: `d-pa
   a placeholder file name in `d-js-place` (2/2 on rerun), and `d-stream-row-gone` (now in
   `stario-reference`; 1/2 on rerun).
 
-## 6.0.0.dev2: reconciled with 5.16
+## Reconciled with draft 5.16 (released as 5.13.0)
 
-Probes and a bench screen of both kits (stario-agent-bench `notes/kit-reconcile.md`) kept 6.0's
+Probes and a bench screen of both kits (stario-agent-bench `notes/kit-reconcile.md`) kept the fresh kit's
 seven skills, tools and guide shape: fewer wasted skill loads at the same pass rates, and fewer
-steps on Conduit with Sonnet. From 5.16 and the screen's transcripts came four guide lines (list
+steps on Conduit with Sonnet. From draft 5.16 and the screen's transcripts came four guide lines (list
 signals are spread, tab-only state stays in signals, `db.watch` with parameters, a host's
 `PORT`), the first command without an unconditional `add auth --password`, and a password kit
 whose tests read the session cookie instead of the `/app` prefix that specs drop.

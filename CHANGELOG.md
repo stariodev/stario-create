@@ -2,265 +2,82 @@
 
 All notable changes to stario-create are documented in this file.
 
-The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
+follow the Stario major; see "Versions" in the README.
 
-## 6.0.0.dev2
+## Unreleased
 
-The 6.0 kit (`kit-fresh`) reconciled with 5.16 (`kit-r3`) after probes and a bench screen of
-both (stario-agent-bench `notes/kit-reconcile.md`). The seven skills, the tools and the guide's
-shape are 6.0's; the changes below come from the screen's transcripts and from 5.16.
+## 5.13.0
 
-### Changed
-
-- `AGENTS.md`: the first command adds the kits the task needs (it read as if every app
-  needed `add auth --password`); a `list[str]` in `data.signals` is spread, `{"tags": [*tags]}`
-  (5.16 had it in `stario-datastar`; 3 of 4 screened Conduit runs probed for it); state that only
-  the tab needs before a submit is a signal set in an expression, not a server call (both Haiku
-  Conduit runs raced the suite with a server round trip per tag); `db.watch` with parameters;
-  `STARIO_HOST=0.0.0.0` for a host's `PORT` (from 5.16). Prose rules no run obeyed ("send
-  several files per message") are gone; the guide stays under 12 KB.
-- `add auth --password`: `tests/test_login.py` reads the signed-in state from the session cookie,
-  so an app that drops the kit's `app.use("/app", session.require)` keeps passing tests (the
-  redirect test skips).
-- Probe cases: `d-page-file`, `d-stop-server`, `d-taken-email` and `d-env-setting` expect the
-  6.0 answers.
-
-## 6.0.0.dev1
-
-A kit written from scratch from the benchmark's brief (stario-agent-bench
-`notes/kit-learnings.md`), not a nudge of 5.16. `DESIGN.md` says what is always on, what is in
-a skill, and why.
-
-### Changed
-
-- `AGENTS.md`, rewritten (11.9 KB): the build loop in six steps (kits in the first command,
-  `check`, `request`, the suite in the foreground, stop when green), one complete page (search
-  and paging from the URL query, a live stream on `db.watch`, a Datastar command, a GET form),
-  one-line names, the rules that raise or misbehave, accounts through the kit, and one paragraph
-  that routes a task to one skill.
-- Seven skills replace twelve, split by task so a task loads one skill or none and no skill
-  sends the agent to another: `stario-tests`, `stario-migrate`, `stario-outside-api`,
-  `stario-js`, `stario-background`, `stario-accounts`, `stario-reference`. No skill has
-  references.
-- `add auth --password`: the login and sign-up pages are plain HTML forms (errors answer 422
-  with the form again; success redirects 303), and `tests/test_login.py` checks behaviour, not
-  wording. A spec with its own paths, labels or markup changes the page and keeps the tests.
-- Logout of the password kit goes to `/`.
-- `Config` in the scaffold and both auth kits reads `DATABASE_PATH` (`database_path`); `db_path`
-  uses it when set. `tests/conftest.py` and `request` clear it.
-- `new` ends with the loop's next steps (a kit first, then the files, then `check`).
-- The `pkill` lint message says to stop a server by its port (`kill $!` does not reach a job of
-  an earlier shell).
-- The tailwind kit's `next:` lines say how to rebuild, write classes and add a theme switch.
+A new agent kit, measured with stario-agent-bench (Conduit, the Pokédex and a change to an
+existing app, built by Claude Haiku and Sonnet against an acceptance suite) and with read-only
+probes (`evals/`). Stario builds cost 1.6x to 3.9x the cheapest framework under 5.12.0, almost
+all of it in extra agent steps. The drafts between (5.13 to 5.16 and 6.0.0.dev on unmerged
+branches) were never released; their measurements are in the bench repo, and `DESIGN.md` says
+what the kit holds and why.
 
 ### Added
 
-- Lint rules `redirect-status` (`w.redirect(url)` answers 307, which repeats a POST),
-  `classes-in-dict`, and `order-by-param`.
-- `sync` removes the skill folders of the retired 5.x skills; `sync --check` reports them.
+- `stario-create check`: format, fix lint, pyrefly and the tests in one call, no `just`
+  needed; prints only problems, each with its fix.
+- `stario-create lint`: the Stario rules ruff and pyrefly miss (`attrs-after-children`,
+  `time-unit`, `module-state`, `env-outside-config`, `redirect-after-signals`,
+  `redirect-status`, `classes-in-dict`, `order-by-param`, `datastar-import`, `json-module`,
+  `bare-task`, `sleep-loop`, `pkill`). A new app runs it in its page tests.
+- `stario-create request METHOD PATH [-j JSON] [-s JSON] [-d k=v] [-H k:v]...`: requests
+  through `TestClient` on an empty data dir, chained in one call; prints the HTML or the first
+  SSE events. No server needed.
+- `stario-create add page NAME[=/path/{param}]...`: a page file, its route, its register line
+  and its home link.
+- `stario-create add auth --password`: email and password accounts (users table, `Session`,
+  scrypt hashes, sign-up, sign-in, logout) as plain HTML forms (errors answer 422, success
+  303), with tests that check behaviour, not wording.
+- `CLAUDE.md` with `@AGENTS.md` in a new app; the kit part of `AGENTS.md` sits between
+  `<!-- BEGIN stario-create -->` and `<!-- END stario-create -->`.
+- `evals/probe.py`: read-only `claude -p` probes of routing (`cases/route.jsonl`) and of
+  narrow questions (`cases/decide*.jsonl`), with `--compare` for two kit versions.
+
+### Changed
+
+- `AGENTS.md`, rewritten (11.9 KB): the build loop (kits in the first command, `check`,
+  `request`, the acceptance suite in the foreground, stop when it passes), one complete page
+  (search and paging from the URL query, a live stream on `db.watch`, a Datastar command), the
+  names an app needs, the rules that raise or misbehave (`@baked` `page()`, writes without
+  network calls, what `watch` wakes on), accounts through the kit, and one line that routes a
+  task to a skill.
+- Seven skills, one per task, none pointing at another and none with references:
+  `stario-tests`, `stario-migrate`, `stario-outside-api`, `stario-js`, `stario-background`,
+  `stario-accounts`, `stario-reference`.
+- `new <folder>` scaffolds in place (`app`, `.`, any path) with one file per concern:
+  `app/urls.py`, `app/data.py` (`--db`), `app/layout.py`, `app/pages/<page>.py`. It prints the
+  files an agent edits, then the summary and the next steps.
+- `add auth` writes `app/auth/` and `app/pages/login.py`; `add tailwind` replaces
+  `app/layout.py` and prints how to rebuild.
+- `Config` in the scaffold and both auth kits reads `DATABASE_PATH`; tests and `request` clear
+  it.
+- The page check is the generated `tests/_pagecheck.py` and `tests/_lint.py`;
+  `tests/test_pages.py` says not to edit them. A page whose outside service is down is skipped.
+- A new app's ruff config fixes F841 (unused local) and ignores B905.
+- `Config.from_env` passes pyrefly 1.5 (it rejected `type(f.default)(raw)`, so `check` failed in
+  every new app).
+- Pins: `stario>=5.8.0,<6`, `litewriter>=0.3.3,<0.4`.
 
 ### Removed
 
 - Skills `stario-api`, `stario-auth`, `stario-browser-check`, `stario-client`,
-  `stario-datastar`, `stario-feature`, `stario-jobs`, `stario-litewriter`, `stario-relay`,
-  `stario-tailwind-daisyui`, `stario-view`, and every `references/` file.
+  `stario-feature`, `stario-jobs`, `stario-litewriter`, `stario-relay`,
+  `stario-tailwind-daisyui`, `stario-view`.
 
-## 5.16.0
+### What `sync` changes in an existing app
 
-From two reviews of 5.15.0: an Opus read of the guide and every skill against
-stario 5.8.3 (wrong facts, contradictions, loading points), and the transcripts of
-the 12 round-3 screen builds in stario-agent-bench (where steps went, which skills
-loaded and were used). Each change below names what it fixes.
-
-### Added
-
-- `stario-outside-api`: the outside HTTP API recipe (one httpx client, a cache, a
-  404 page, `httpx.MockTransport` tests) is its own skill with its own row. Pokédex
-  runs read all of `stario-api` (cookies, middleware, errors) to reach it.
-- `evals/probe.py`: read-only probes of the guide and skills. A case runs one
-  `claude -p` in a fresh scaffolded app and records which skills loaded, what was
-  read, and whether the planned code or answer matches. `cases/route.jsonl` (20
-  feature requests; Haiku and Sonnet), `cases/decide.jsonl` (27 narrow questions;
-  Opus) and `cases/decide-skills.jsonl` (13 questions answered in a skill). The old
-  `devin` evals, which predated the one-file-per-page layout, are gone.
-
-### Changed
-
-- `AGENTS.md`: run `add auth` or `add tailwind` right after `new`, before editing
-  a file (a kit replaces only unchanged files; every Conduit run merged by hand).
-  Write the imports a file uses (ruff drops and sorts, it does not add). `page()`
-  is `@baked`: no `if` or f-string on a parameter; pass per-request parts in. The
-  acceptance suite runs in the foreground (one run spent 74 of 126 steps polling a
-  backgrounded suite). Stop a server by its port; `kill $!` does not reach a job
-  from an earlier command. `ASSETS.href` renames files; a name a test checks needs
-  `Files` (6 of 6 Conduit runs failed the avatar tests first). macOS `sed -i`.
-  `w.redirect` defaults to 307, so pass 303. A page on several tables. A task that
-  defines `/` rewrites the home page. A page may import any module but a page.
-  `show` sends the first HTML; then only the stream does. Run `new` without
-  `| tail` and `cd` into the app. Without an acceptance suite, each page gets one
-  test file. 12.0 KB, under the 16 KB rule-loader cut with the 4 KB of app notes.
-- `new` prints the files first and the summary and next step last: all 12 screen
-  runs piped it through `tail`, lost the summary, and then read the files again.
-- A new app's ruff config marks F841 (an unused local) as a safe fix, so the check
-  removes it as it removes an unused import.
-- `stario-feature`: the navbar count renders only for a signed-in user (a visitor's
-  stream hit `session.require` and was sent to the login page), built outside the
-  `@baked` `page()`. The TestClient calls moved here from `stario-api`, which ended
-  a loop between the two.
-- `stario-auth`: new columns go in `CREATE TABLE`, not through `stario-litewriter`
-  (loaded in 6 of 6 Conduit runs for no use). A task with plain HTML forms keeps the
-  session and password files and rewrites the login page and its test together.
-- `stario-datastar`: `@baked` described as it works (once, with placeholders), user
-  Markdown rendered with raw HTML off before `SafeString`, `view_transition` listed
-  as Pro.
-- `stario-api`: one 404 rule (the undefined `not_found_page()` is gone), a
-  `DATABASE_PATH` that keeps tests isolated, bound file inputs send a list.
-- Descriptions and routing rows agree: `stario-relay` covers an edit dialog on a
-  SQLite page too, `stario-litewriter` is not for a new table, `stario-view` names
-  paging, `stario-client` no longer claims the theme toggle the Tailwind kit ships.
-
-## 5.15.0
-
-The stario-agent-bench audit of 5.14.0 (`notes/kit-audit/` there) found the turns in
-two places: one write per message while building, and a cleanup loop after the
-acceptance suite passed (`just` missing, ruff B905, edits to the scaffold's tests).
-Every step also carried about 4k tokens of skills that AGENTS.md forced, and the kit
-had errors that cost runs. This release makes AGENTS.md enough for a first page,
-loads a skill only when its topic comes up, and turns rules into commands whose
-output states the fix.
-
-### Added
-
-- `stario-create check`: format, fix lint, pyrefly, and the tests in one call that
-  needs no `just`. It runs every step and names the ones that failed. `just check`
-  stays as the short form and also runs every step now.
-- `stario-create lint`: the Stario rules that ruff and pyrefly miss, each finding
-  with its fix: `attrs-after-children`, `time-unit`, `module-state`,
-  `env-outside-config`, `redirect-after-signals`, `datastar-import`, `json-module`,
-  `bare-task`, `sleep-loop`, `pkill`. A new app runs it in `tests/test_pages.py`.
-- `stario-create request METHOD PATH [-j JSON] [-s JSON] [-d k=v] [-H k:v]...`:
-  requests through `TestClient` in the app's venv, on a fresh data dir; prints the
-  HTML or the first SSE events. No server, no `curl`, no `pkill`.
-- `stario-create add page NAME[=/path/{param}]...`: the page file, its route, its
-  import and register line, and its home link.
-- `stario-create add auth --password`: a users table, sign-up, sign-in, logout, a
-  `Session` with `require`, scrypt hashes, and tests. Without `SESSION_SECRET` the
-  key is kept in `data/session.key`.
-- `CLAUDE.md` with `@AGENTS.md` in a new app, so a project with its own `CLAUDE.md`
-  still loads the guide. `sync` adds the line when it is missing.
-- Skills have `references/`, and `sync` copies them.
-
-### Changed
-
-- `AGENTS.md` (3,005 tokens, was 3,151) no longer orders two skills read up front.
-  It starts with the loop: write every file in one message and leave imports to the
-  check, the check without `just`, the acceptance suite as the check, `request`
-  instead of a server, `kill $!` and never `pkill -f`, no `timeout` wrapper, and
-  "load the skill of a row before you write code for it". It has
-  the exact imports, a live page as whole files with paging, commands in the order
-  validate, write, reply, a table of names, `$PORT`, and a spec variable as a
-  `Config` field. The test how-to moved to `stario-feature` and `stario-api`.
-- The kit part of `AGENTS.md` sits between `<!-- BEGIN stario-create -->` and
-  `<!-- END stario-create -->`; `sync` replaces only that part.
-- Skill descriptions name what the skill covers, then when to use it, then what
-  it is not for. Always-on text (the guide and the descriptions) is 3,612 tokens,
-  was 3,678. Each `SKILL.md` holds the common path; rare depth moved to
-  `references/`. The `SKILL.md` bodies total 13.4k tokens, was 20.3k; the
-  references hold 4.2k more.
-- One home for each topic: the todos page in `AGENTS.md`, the litewriter API in
-  `stario-litewriter`, the browser policy in `stario-browser-check`. Plain columns
-  are the default table style; `id` plus JSON is a reference of `stario-litewriter`.
-- `stario-auth` builds on the kits; `stario-api` has an outside API with a cache and
-  an `httpx.MockTransport` test (`references/outside-api.md`).
-- The page check moved to the generated `tests/_pagecheck.py` (with `tests/_lint.py`);
-  `tests/test_pages.py` is a few lines that say not to read or edit them, and `sync`
-  refreshes them. A page whose outside service is down is skipped; a page that
-  answers 500 is reported with its exception.
-- `new` prints the full text of the files a page changes.
-- ruff in a new app ignores B905 (`zip()` without `strict=`).
-- Pins: `stario>=5.8.0`, `litewriter>=0.3.3`.
-
-### Fixed
-
-- `stario-datastar`: a bare number in `debounce=`, `delay=`, or `throttle=` is
-  seconds (it said `200` was a time like `"200ms"`).
-- `stario-jobs`: the test asserts the shutdown span is not `None` and calls
-  `drain_tasks(timeout=1)`, which waited forever for the timer loop.
-  `report_delay` is a `Config` field.
-- `stario-api`: `from_env` does not read `db_path` from `DB_PATH`.
-- `stario-client` points to `stario-datastar` for `data.*` and `at.*`.
-- An attribute after a child raises when the `h.*` call runs, not at render.
-- Every Python example in the guide and the skills is built into a scaffolded app
-  and checked with pyrefly and the Stario lint (`tests/test_examples.py`).
-
-## 5.14.0
-
-Measured again with stario-agent-bench. After 5.13.0 the turns that were left
-went to writing many small files: each page had four (`urls.py`, `views.py`,
-`handlers.py`, `data.py`), and Haiku wrote each with its own tool call (26 to
-40 writes against 15 for Hono). Agents also rewrote `tests/test_home.py`
-with every home page, and tidied files they had just written.
-
-### Changed
-
-- New apps have one file per concern: `app/urls.py` holds every route,
-  `app/data.py` (with `--db`) the tables, rows, and every read and write,
-  `app/layout.py` the assets, the document, and shared markup, and
-  `app/pages/<page>.py` one page: its class and its render functions.
-  `app/assets.py`, `app/common/`, and `app/features/` are gone from the
-  scaffold. An app with the older folder per page keeps its layout; the
-  guide says so.
-- `stario-create add auth` writes `app/auth/` (session, providers, tables)
-  and `app/pages/login.py`, and appends its routes to `app/urls.py`.
-  `add tailwind` replaces `app/layout.py`.
-- `tests/test_pages.py` asserts that `/` answers below 400 and reads the
-  routes from `app/urls.py` (or `app/features/*/urls.py`). A stream that
-  sends only signals passes its check. There is no `tests/test_home.py`.
-- `stario-litewriter` shows how `schema` upgrades a database that already
-  holds rows (check, `ALTER TABLE`, set the old rows in the same step, never
-  recreate). `stario-feature` shows a live count on every page (a navbar
-  badge) as its own stream of one signal.
-- `AGENTS.md`: the new layout, a page as one file with its imports, a section
-  on changing an existing app (find the page, add a route, a new field on a
-  table with rows, a new live part), the unit of `debounce=` (a bare number
-  is seconds), "write each file once", and that `just check` fixes imports.
-- `stario-api` says how to call an outside HTTP API (one `httpx` client
-  opened in `bootstrap`). Every skill shows the new paths.
-- Shorter skill descriptions (4.0 KB to 1.9 KB in all), with no `: ` in the
-  YAML value, which `npx skills add` and Claude Code reject.
-
-## 5.13.0
-
-Measured with stario-agent-bench (Conduit and the Pokédex, Claude Sonnet and
-Haiku): Stario builds cost 1.6x to 3.9x the cheapest framework, through extra
-turns. Agents scaffolded in `/tmp` and read the files back, probed
-`site-packages` for names the guide did not give, read six skills up front,
-patched small files, and wrote tests that an acceptance suite already covered.
-
-### Changed
-
-- `stario-create new <folder>` scaffolds in place: the folder may be `app`,
-  `.`, or any path, and `app_name` comes from its name (`--name` sets it).
-  `--db` adds litewriter and opens the SQLite file in `bootstrap`. Inside a
-  repo whose `AGENTS.md` above the folder is already the Stario guide, it
-  writes no second copy of the guide or the skills. It ends by printing what
-  each file holds, so an agent need not open them.
-- `AGENTS.md` shows `main.py`, the layout the scaffold writes, the rules that
-  fail at run time (attributes before children), and one whole page class
-  with its view. It asks for each feature in one step, and makes tests
-  proportional: with an end-to-end suite, that suite is the check.
-- `stario-api` is the server-side reference: serving on a host and port,
-  a catch-all route and a 404 page, redirects (`RedirectException`), errors
-  (`catch_errors`), cookies and `SignedCookie`, forms, `Assets` and `Files`,
-  litewriter, Relay, and `TestClient` with form posts (`data=`) and
-  `r.headers.get(...)`.
-- New skill `stario-datastar`: the page side (`h.*`, `data.*`, `at.*`,
-  `SSE`) that was in `stario-api`.
-- `stario-auth` adds password sign-in for a spec that requires it (scrypt,
-  the same `Session`, `require_user`), next to provider sign-in.
-- `stario-feature` shows a form error through a `_error` signal, a page that
-  watches several tables, and paging. Narrower descriptions for
-  `stario-litewriter`, `stario-relay`, and `stario-view`.
+- Replaces the kit part of `AGENTS.md` (between the markers, or everything above `## This
+  app`) and keeps the app's notes.
+- Adds `CLAUDE.md` with `@AGENTS.md` when it is missing.
+- Installs the seven skills and deletes the folders of the ten removed ones, local edits
+  included: copy an edited skill elsewhere first.
+- Refreshes the generated `tests/_pagecheck.py` and `tests/_lint.py`.
+- Leaves every file under `app/` alone: an app with the folder-per-page layout keeps it, and
+  an app with the 5.12 auth kit keeps its provider sign-in.
 
 ## 5.12.0
 

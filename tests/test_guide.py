@@ -38,8 +38,8 @@ def test_guide_fits_rule_loader_budget(profile):
 
 
 def test_always_on_text_stays_small():
-    # The guide and every skill description sit in context on every step. 5.16 had
-    # 14.3 KB with twelve skills; 6.0 has seven, so the total may not grow past that.
+    # The guide and every skill description sit in context on every step. draft 5.16 had
+    # 14.3 KB with twelve skills; 5.13 has seven, so the total may not grow past that.
     size = len(guide_text().encode()) + sum(len(description(n).encode()) for n in skill_names())
     assert size <= 14_300, size
 
@@ -47,7 +47,7 @@ def test_always_on_text_stays_small():
 @pytest.mark.parametrize("name", skill_names())
 def test_skill_fits_inline(name):
     # A SKILL.md body holds one task's path; Devin shows a skill inline up to 9.0 KB.
-    # 6.0 has no references: each skill is one load, never a chain.
+    # 5.13 has no references: each skill is one load, never a chain.
     assert len(skill_text(name).encode()) <= 8_000
     for rel in skill_files(name)[1:]:
         assert len(resource(f"skills/{name}/{rel}").read_text().encode()) <= 6_000, rel
@@ -63,7 +63,7 @@ def test_each_reference_is_named_in_its_skill(name):
 @pytest.mark.parametrize("name", skill_names())
 def test_description_says_when_to_use_the_skill(name):
     # What the skill covers (the words a task contains) first, then "Use when/for/before".
-    # 300 characters, not 260 as in 5.16: seven skills replace twelve, so each description
+    # 300 characters, not 260 as in draft 5.16: seven skills replace twelve, so each description
     # names more triggers and its "Not for" case, and the sum is still smaller.
     text = description(name)
     assert any(f"Use {w}" in text for w in ("when", "for", "before")) or text.startswith(
@@ -74,7 +74,7 @@ def test_description_says_when_to_use_the_skill(name):
 
 @pytest.mark.parametrize("name", skill_names())
 def test_no_skill_sends_the_agent_to_another_skill(name):
-    # A skill that points at a skill gets both loaded (5.15: stario-auth pulled in
+    # A skill that points at a skill gets both loaded (draft 5.15: stario-auth pulled in
     # stario-litewriter in 6/6 runs). Only the guide routes; a skill may name one other
     # skill for a case it does not cover, at most once.
     text = skill_text(name).split("---", 2)[2]
@@ -179,8 +179,8 @@ def test_guide_states_the_facts_that_cost_runs():
         "DATABASE_PATH",
         "lsof -ti tcp:8000",  # kill $! does not reach an earlier call's job
         "keep the route names",  # the login kit's tests survive a rewrite
-        "[*tags]",  # a list[str] variable in data.signals is refused (3 of 4 conduit runs, 6.0)
-        "no server call",  # tags being typed stay in the tab (both 6.0 Haiku conduit runs raced)
+        "[*tags]",  # a list[str] variable in data.signals is refused (3 of 4 conduit runs, dev1 draft)
+        "no server call",  # tags being typed stay in the tab (both dev1-draft Haiku runs raced)
         "STARIO_HOST=0.0.0.0",  # a host's PORT needs every interface
     ):
         assert fact in text, fact

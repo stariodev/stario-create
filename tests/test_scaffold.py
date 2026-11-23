@@ -500,3 +500,14 @@ def test_js_checker_requires_each_call(tmp_path: Path):
     share = tmp_path / "static/js/share.js"
     share.write_text("window.app ??= {};\napp.share = {\n  copy(url, done) {}\n};\n")
     check()
+
+
+def test_major_tracks_the_stario_major():
+    # The version scheme (README "Versions"): the major is the Stario major the kit targets,
+    # and the scaffold's pin covers exactly that major.
+    from stario_create import TRACKS_STARIO, __version__
+    from stario_create.scaffold import STARIO_REQ
+
+    assert __version__.split(".")[0] == TRACKS_STARIO
+    assert f">={TRACKS_STARIO}." in STARIO_REQ
+    assert STARIO_REQ.endswith(f"<{int(TRACKS_STARIO) + 1}")
