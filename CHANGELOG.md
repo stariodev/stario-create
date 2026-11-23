@@ -51,6 +51,8 @@ what the kit holds and why.
 - `new <folder>` scaffolds in place (`app`, `.`, any path) with one file per concern:
   `app/urls.py`, `app/data.py` (`--db`), `app/layout.py`, `app/pages/<page>.py`. It prints the
   files an agent edits, then the summary and the next steps.
+- Both auth kits' tests read the signed-in state from the session cookie, so an app that moves
+  `session.require` off `/app` keeps passing (the redirect test skips).
 - `add auth` writes `app/auth/` and `app/pages/login.py`; `add tailwind` replaces
   `app/layout.py` and prints how to rebuild.
 - `Config` in the scaffold and both auth kits reads `DATABASE_PATH`; tests and `request` clear
