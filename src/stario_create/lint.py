@@ -62,34 +62,6 @@ def _dotted(node: ast.expr) -> str:
     return ""
 
 
-def _is_tag(node: ast.expr) -> bool:
-    """A call to `h.Div`, `h.A`, ...: `h.` and a capital letter."""
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and _dotted(node.func.value) == "h"
-        and node.func.attr[:1].isupper()
-    )
-
-
-def _kind(arg: ast.expr) -> str:
-    """'attr', 'child', or '' when the type of an argument of h.* is not plain."""
-    if isinstance(arg, ast.Starred):
-        return "child" if isinstance(arg.value, (ast.ListComp, ast.GeneratorExp)) else ""
-    if isinstance(arg, ast.Dict):
-        return "attr"
-    if isinstance(arg, ast.Call):
-        name = _dotted(arg.func)
-        if name == "classes" or name.startswith("data."):
-            return "attr"
-        return "child" if _is_tag(arg) else ""
-    if isinstance(arg, ast.Constant) and isinstance(arg.value, (str, int, float)):
-        return "child" if not isinstance(arg.value, bool) else ""
-    if isinstance(arg, (ast.JoinedStr, ast.ListComp, ast.GeneratorExp)):
-        return "child"
-    return ""
-
-
 class _Visitor(ast.NodeVisitor):
     def __init__(self, path: str, config: bool) -> None:
         self.path = path
@@ -102,21 +74,6 @@ class _Visitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         name = _dotted(node.func)
-        if _is_tag(node):
-            seen_child = False
-            for arg in node.args:
-                kind = _kind(arg)
-                if kind == "child":
-                    seen_child = True
-                elif kind == "attr" and seen_child:
-                    self.add(
-                        arg,
-                        "attrs-after-children",
-                        f"{name}(...) gets an attribute after a child; move the dicts, "
-                        "classes() and data.* before the first child (this order raises "
-                        "when the call runs)",
-                    )
-                    break
         if (
             isinstance(node.func, ast.Attribute)
             and node.func.attr == "redirect"

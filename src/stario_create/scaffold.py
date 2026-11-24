@@ -27,7 +27,7 @@ from stario_create.data import (
     template,
 )
 
-STARIO_REQ = "stario>=5.8.0,<6"  # the skills are verified against 5.8
+STARIO_REQ = "stario>=5.9.0,<6"  # the skills are verified against 5.9
 LITEWRITER_REQ = "litewriter>=0.3.3,<0.4"
 DEV_REQS = ["ruff", "pyrefly", "pytest", "pytest-asyncio", "watchfiles"]
 

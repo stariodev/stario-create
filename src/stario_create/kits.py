@@ -39,7 +39,7 @@ class Kit:
 KITS: dict[str, Kit] = {
     "auth": Kit(
         help="sign-in with Google and GitHub through OAuth; a session cookie; tests",
-        deps=("stario>=5.8.0,<6", "litewriter>=0.3.3,<0.4"),
+        deps=("stario>=5.9.0,<6", "litewriter>=0.3.3,<0.4"),
         create_only=("app/data.py",),
         next=(
             'Set SESSION_SECRET in .env: python -c "import secrets; print(secrets.token_urlsafe(48))"',
@@ -53,7 +53,7 @@ KITS: dict[str, Kit] = {
     ),
     "auth-password": Kit(
         help="sign-up and sign-in with an email and a password; a session cookie; tests",
-        deps=("stario>=5.8.0,<6", "litewriter>=0.3.3,<0.4"),
+        deps=("stario>=5.9.0,<6", "litewriter>=0.3.3,<0.4"),
         create_only=("app/data.py",),
         next=(
             'Pages for signed-in users: app.use("/editor", session.require) in app/main.py; '

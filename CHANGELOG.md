@@ -7,6 +7,19 @@ follow the Stario major; see "Versions" in the README.
 
 ## Unreleased
 
+## 5.14.0
+
+For stario 5.9. New apps pin `stario>=5.9.0,<6`; `sync` brings the guide and skills to an app.
+
+### Changed
+
+- The guide and `stario-reference` name the 5.9 forms: `data.on(..., window=True)` (`target=`
+  warns), several statements as several arguments, `payload="{id: $x}"` for one expression and
+  `payload=literal({...})` for data, `literal(v)` instead of `string_literal`, and
+  `sse.replace_url(url)`.
+- `stario-create lint` drops `attrs-after-children`: stario 5.9 renders attributes after
+  children, so the rule failed code that works.
+
 ## 5.13.0
 
 A new agent kit, measured with stario-agent-bench (Conduit, the Pokédex and a change to an

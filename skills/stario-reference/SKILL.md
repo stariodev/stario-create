@@ -5,7 +5,7 @@ description: Stario, Datastar and litewriter names past AGENTS.md - more data.* 
 
 # Reference
 
-Each line is one fact, checked against stario 5.8 and litewriter 0.3. AGENTS.md has the common
+Each line is one fact, checked against stario 5.9 and litewriter 0.3. AGENTS.md has the common
 names; this file has the rest. Imports: `from stario import App, Context, Files, Relay, Route,
 Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
 `from stario.markup import HtmlElement, SafeString, baked`.
@@ -31,9 +31,9 @@ Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
   `{"form.title": ""}` is `$form.title`. Lists and dicts are allowed values.
 - `data.computed("total", "$a + $b")`, `data.effect("expr")` (runs when its signals change),
   `data.ref("box")` (`$box` is the element), `data.json_signals()` (debug).
-- `data.on(event, expr, prevent=True, stop=True, once=True, debounce="300ms",
-  throttle="1s", delay="200ms", target="window" | "document" | "outside")`. Keys:
-  `data.on("keydown", "evt.key === 'Escape' && ($open = false)", target="window")`.
+- `data.on(event, expr, ..., prevent=True, stop=True, once=True, debounce="300ms",
+  throttle="1s", delay="200ms", window=True | document=True | outside=True)`. Keys:
+  `data.on("keydown", "evt.key === 'Escape' && ($open = false)", window=True)`.
 - `data.on_intersect(expr, once=True, threshold=0.5)`, `data.on_interval(expr, duration="5s")`,
   `data.on_signal_patch(expr)`.
 - `data.bind("x")` on an input, select, textarea, checkbox (a boolean), radio group (shared
@@ -53,18 +53,19 @@ Writer, classes, h`, `from stario.datastar import SSE, at, data, read_signals`,
 - `at.get/post/put/patch/delete(url, **options)` send every signal not starting with `_` (JSON
   body, or `?datastar=` on GET and DELETE). Options: `include="title|url"` or `exclude=...`
   (regex on names), `content_type="form"` with `selector="#f"` (send a form as a form),
-  `headers={...}`, `payload={"id": "$x"}` (JS expressions; never user text).
-- Expressions: `@post('/x')` is what `at.post("/x")` returns; join with `;` in one `data.on`:
-  `"$busy = true; " + at.post(SAVE.href())`.
-- `from stario.datastar.format import string_literal`: quote a Python string for an expression.
+  `headers={...}`, `payload="{id: $x}"` (one JS expression) or
+  `payload=literal({"title": title})` (data, also user text).
+- Expressions: `@post('/x')` is what `at.post("/x")` returns. Several statements are several
+  arguments: `data.on("click", "$busy = true", at.post(SAVE.href()))`.
+- `literal(v)` (`stario.datastar`): a Python value as a JS literal in an expression.
 
 ## SSE answers (`SSE(w)`)
 
 - `patch_elements(el, mode=...)`: `outer` (default, morph by id), `inner`, `replace`,
   `prepend`, `append`, `before`, `after`; `selector="#list"` targets another element.
   `el` may be a list of elements.
-- `patch_signals({...})`, `remove("#id")`, `navigate(url)`, `execute_script(code)` (trusted code
-  only), `ping()` (a keep-alive), `open()` (send headers before the first event).
+- `patch_signals({...})`, `remove("#id")`, `navigate(url)`, `replace_url(url)`,
+  `execute_script(code)` (trusted code), `ping()`, `open()` (headers before the first event).
 - One answer may hold several events: patch the list, then clear the form signals.
 
 ## Recipes

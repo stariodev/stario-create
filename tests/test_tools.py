@@ -56,10 +56,9 @@ def app(tmp_path: Path) -> Path:
 # --- lint -------------------------------------------------------------------
 
 
-def test_lint_attrs_after_children():
-    assert rules('h.I({"class": "x"}, "child", data.on("click", "x"))') == ["attrs-after-children"]
-    assert rules('h.Li("a", classes("tag"))') == ["attrs-after-children"]
-    assert rules('h.Div(h.P("a"), {"id": "x"})') == ["attrs-after-children"]
+def test_attrs_after_children_pass_on_stario_5_9():
+    assert rules('h.I({"class": "x"}, "child", data.on("click", "x"))') == []
+    assert rules('h.Div(h.P("a"), {"id": "x"})') == []
     assert rules('h.Ul({"id": "x"}, data.show("$x"), *[h.Li(t) for t in ts])') == []
     assert rules('h.A(classes("b"), {"href": u}, label, icon)') == []
 
@@ -217,12 +216,14 @@ def test_the_page_check_skips_a_page_that_caught_its_down_service(app: Path):
 
 def test_the_page_check_reports_a_page_that_fails(app: Path):
     home = app / "app/pages/home.py"
-    home.write_text(home.read_text().replace("h.H1(app_name),", 'h.H1(app_name, {"id": "x"}),'))
+    home.write_text(
+        home.read_text().replace(
+            "h.H1(app_name),", 'h.H1(app_name, h.A({"href": "javascript:x"})),'
+        )
+    )
     out = app_tests(app, "tests/test_pages.py")
     assert out.returncode == 1
-    assert "/ answers 500 StarioError: HTML attributes must be passed before children" in (
-        out.stdout
-    )
+    assert "/ answers 500 StarioError" in out.stdout, out.stdout
 
 
 # --- add page -------------------------------------------------------------------
@@ -335,12 +336,12 @@ async def test_request_prints_html_events_redirects_and_errors(app: Path, monkey
 
 
 async def test_request_streams_and_commands():
-    from stario import App, Context, Route, Span, Writer
+    from stario import App, Context, Route, Span, Writer, h
     from stario.datastar import SSE, read_signals
 
     async def live(c: Context, w: Writer) -> None:
         sse = SSE(w)
-        sse.patch_elements('<div id="x">first</div>')
+        sse.patch_elements(h.Div({"id": "x"}, "first"))
         await asyncio.sleep(5)
 
     async def add(c: Context, w: Writer) -> None:
