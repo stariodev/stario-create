@@ -308,6 +308,29 @@ _CLOUD_INSTALL = ".cursor/cloud-install.sh"
 _CLOUD_FILES = (_CLOUD_ENV_JSON, _CLOUD_INSTALL)
 
 
+_RUFF_EXCLUDE = re.compile(
+    r'^(extend-exclude = \[)(?=[^\]]*"\.agents")(?![^\]]*"AGENTS\.md")', re.M
+)
+
+
+def sync_ruff_exclude(root: Path) -> str | None:
+    """Add "AGENTS.md" to the kit's ruff `extend-exclude` line. Returns the path, or None.
+
+    ruff formats the Python blocks in Markdown files, so `just check` rewrote the guide to the
+    app's line length and `sync --check` called it stale. Only a line that already excludes
+    ".agents" (the kit wrote it) is changed.
+    """
+    path = root / "pyproject.toml"
+    if not path.is_file():
+        return None
+    text = path.read_text()
+    new = _RUFF_EXCLUDE.sub(r'\1"AGENTS.md", ', text, count=1)
+    if new == text:
+        return None
+    path.write_text(new)
+    return str(path)
+
+
 def sync_cloud_env(root: Path, *, force: bool = False) -> list[str]:
     """Write the Cloud Agent install files.
 
@@ -487,6 +510,9 @@ def stale_files(root: Path) -> list[str]:
         current = local.split(_THIS_APP)[0].strip() == bundled.split(_THIS_APP)[0].strip()
     if not current:
         stale.append("AGENTS.md")
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file() and _RUFF_EXCLUDE.search(pyproject.read_text()):
+        stale.append('pyproject.toml (ruff formats AGENTS.md: add "AGENTS.md" to extend-exclude)')
     if (root / "CLAUDE.md").is_file():
         stale.append(
             "CLAUDE.md (move its notes into AGENTS.md under '## This app', then delete it)"

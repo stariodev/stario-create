@@ -7,6 +7,16 @@ follow the Stario major; see "Versions" in the README.
 
 ## Unreleased
 
+## 5.16.0
+
+### Fixed
+
+- `AGENTS.md` stays as shipped. ruff 0.17 formats the Python blocks in Markdown, so an app's
+  `just check` rewrote the guide to the app's line length and `sync --check` called it stale.
+  New apps exclude `AGENTS.md` from ruff; `sync` adds `"AGENTS.md"` to the kit's
+  `extend-exclude` line (the one that excludes `.agents`), and `sync --check` names an app
+  whose ruff still formats it.
+
 ## 5.15.0
 
 ### Changed

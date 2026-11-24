@@ -34,6 +34,7 @@ from stario_create.scaffold import (
     sync_cloud_env,
     sync_generated_tests,
     sync_guide,
+    sync_ruff_exclude,
     sync_skill_files,
 )
 
@@ -209,6 +210,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
         changed.append(dropped)
     changed += [str(Path(p).relative_to(root)) for p in sync_generated_tests(root)]
     changed += [str(Path(p).relative_to(root)) for p in sync_cloud_env(root)]
+    if sync_ruff_exclude(root) is not None:
+        changed.append("pyproject.toml")
     changed += [
         p if p.startswith(("removed ", "kept ")) else str(Path(p).relative_to(root))
         for p in sync_skill_files(root, force=args.force)

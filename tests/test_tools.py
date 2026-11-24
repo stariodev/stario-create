@@ -26,6 +26,7 @@ from stario_create.scaffold import (
     stale_files,
     sync_generated_tests,
     sync_guide,
+    sync_ruff_exclude,
     sync_skill_files,
 )
 
@@ -465,6 +466,18 @@ def test_sync_removes_the_one_line_claude_md_and_keeps_one_with_notes(tmp_path: 
     assert drop_claude_import(tmp_path) is None
     assert claude.read_text() == "@AGENTS.md\n\n# Mine\n"
     assert any(item.startswith("CLAUDE.md (move its notes") for item in stale_files(tmp_path))
+
+
+def test_sync_keeps_ruff_off_the_guide(tmp_path: Path):
+    # ruff formats Python blocks in Markdown: the guide must stay as shipped.
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.ruff]\nextend-exclude = [".agents", ".claude"]\n')
+    assert any(item.startswith("pyproject.toml (ruff formats") for item in stale_files(tmp_path))
+    assert sync_ruff_exclude(tmp_path) == str(pyproject)
+    assert 'extend-exclude = ["AGENTS.md", ".agents", ".claude"]' in pyproject.read_text()
+    assert sync_ruff_exclude(tmp_path) is None
+    pyproject.write_text('[tool.ruff]\nextend-exclude = ["build"]\n')
+    assert sync_ruff_exclude(tmp_path) is None  # not the kit's line: left alone
 
 
 def test_sync_replaces_only_the_marked_part(tmp_path: Path):
