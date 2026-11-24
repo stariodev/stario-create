@@ -172,18 +172,21 @@ def sync_generated_tests(root: Path) -> list[str]:
     return written
 
 
-def sync_claude(root: Path) -> str | None:
-    """Make CLAUDE.md load AGENTS.md (`@AGENTS.md`). Returns the path, or None if current.
+_CLAUDE_IMPORT = "@AGENTS.md"
 
-    Claude Code reads CLAUDE.md; the import line keeps one guide for every agent, and a
-    project's own CLAUDE.md text stays below it.
+
+def drop_claude_import(root: Path) -> str | None:
+    """Remove a CLAUDE.md that only imports AGENTS.md. Returns "removed CLAUDE.md" or None.
+
+    Claude Code reads AGENTS.md, so the one guide is AGENTS.md for every agent. stario-create
+    5.13 and 5.14 wrote a one-line CLAUDE.md (`@AGENTS.md`); a CLAUDE.md with notes of its own
+    stays, and `sync --check` names it.
     """
     path = root / "CLAUDE.md"
-    text = path.read_text() if path.is_file() else ""
-    if "@AGENTS.md" in text.splitlines():
-        return None
-    path.write_text("@AGENTS.md\n" + (f"\n{text}" if text else ""))
-    return str(path)
+    if path.is_file() and path.read_text().strip() == _CLAUDE_IMPORT:
+        path.unlink()
+        return "removed CLAUDE.md"
+    return None
 
 
 def scaffold_files(
@@ -244,9 +247,6 @@ def scaffold_files(
         guide = sync_guide(root, force=force)
         if guide is not None:
             created.append(guide)
-        claude = sync_claude(root)
-        if claude is not None:
-            created.append(claude)
         created.extend(sync_skill_files(root, force=force))
 
     _append_once(root / ".gitignore", "*.sqlite3*", created)
@@ -487,9 +487,10 @@ def stale_files(root: Path) -> list[str]:
         current = local.split(_THIS_APP)[0].strip() == bundled.split(_THIS_APP)[0].strip()
     if not current:
         stale.append("AGENTS.md")
-    claude = root / "CLAUDE.md"
-    if not claude.is_file() or "@AGENTS.md" not in claude.read_text().splitlines():
-        stale.append("CLAUDE.md (no @AGENTS.md line)")
+    if (root / "CLAUDE.md").is_file():
+        stale.append(
+            "CLAUDE.md (move its notes into AGENTS.md under '## This app', then delete it)"
+        )
     if path.exists() and (size := len(path.read_bytes())) > _RULE_LIMIT:
         stale.append(f"AGENTS.md ({size} bytes; rule loaders cut at {_RULE_LIMIT})")
     if not (root / _CLOUD_ENV_JSON).is_file():

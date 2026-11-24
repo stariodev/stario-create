@@ -7,6 +7,15 @@ follow the Stario major; see "Versions" in the README.
 
 ## Unreleased
 
+## 5.15.0
+
+### Changed
+
+- `AGENTS.md` is the one guide for every agent: Claude Code reads it as Codex and Cursor do.
+  `new` and `sync` write no `CLAUDE.md`, and `sync` removes the one-line `@AGENTS.md` file that
+  5.13 and 5.14 wrote. A `CLAUDE.md` with notes of its own stays; `sync --check` says to move
+  its notes into `AGENTS.md` under `## This app`.
+
 ## 5.14.0
 
 For stario 5.9. New apps pin `stario>=5.9.0,<6`; `sync` brings the guide and skills to an app.
