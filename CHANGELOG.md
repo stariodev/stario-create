@@ -20,6 +20,11 @@ For stario 5.9. New apps pin `stario>=5.9.0,<6`; `sync` brings the guide and ski
 - `stario-create lint` drops `attrs-after-children`: stario 5.9 renders attributes after
   children, so the rule failed code that works.
 
+### Fixed
+
+- The page check reads a URL built in the browser, `@get('/leaders/' + $board)`, as a route
+  with a parameter. It reported "GET /leaders/ has no route" (seen in three apps).
+
 ## 5.13.0
 
 A new agent kit, measured with stario-agent-bench (Conduit, the Pokédex and a change to an

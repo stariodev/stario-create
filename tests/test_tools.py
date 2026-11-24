@@ -226,6 +226,32 @@ def test_the_page_check_reports_a_page_that_fails(app: Path):
     assert "/ answers 500 StarioError" in out.stdout, out.stdout
 
 
+def test_the_page_check_reads_a_url_built_in_the_browser(app: Path):
+    # '/x/' + $id is a route with a parameter; '/nope/' + $id has no route.
+    (app / "app/urls.py").write_text(
+        (app / "app/urls.py").read_text() + '\nITEM = Route("GET /x/{item_id}")\n'
+    )
+    home = app / "app/pages/home.py"
+    home.write_text(
+        home.read_text().replace(
+            "h.H1(app_name),",
+            "h.H1(app_name), h.Button(data.signals({'id': 1}), "
+            "data.on('click', \"@get('/x/' + $id)\")), "
+            "h.Button(data.on('click', \"@get('/nope/' + $id)\")),",
+        )
+    )
+    home.write_text("from stario.datastar import data\n" + home.read_text())
+    main = app / "app/main.py"
+    main.write_text(
+        "from app.urls import ITEM\n\n\nasync def item(c, w):\n    w.empty()\n\n\n"
+        + main.read_text().replace("        yield", "        app.add(ITEM, item)\n        yield", 1)
+    )
+    out = app_tests(app, "tests/test_pages.py")
+    assert out.returncode == 1, out.stdout
+    assert "GET /nope/x has no route" in out.stdout, out.stdout
+    assert "GET /x/x" not in out.stdout, out.stdout
+
+
 # --- add page -------------------------------------------------------------------
 
 
