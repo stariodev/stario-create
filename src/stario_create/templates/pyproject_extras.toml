@@ -3,7 +3,8 @@
 target-version = "py314"
 line-length = 100
 src = ["app", "tests"]
-extend-exclude = [".agents", ".claude", ".cursor", "tests/_pagecheck.py", "tests/_lint.py"]
+# AGENTS.md: ruff formats Python blocks in Markdown, and sync keeps the guide as shipped.
+extend-exclude = ["AGENTS.md", ".agents", ".claude", ".cursor", "tests/_pagecheck.py", "tests/_lint.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
