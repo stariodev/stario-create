@@ -2,7 +2,7 @@
 # Stario app guide
 
 A Stario app is Python 3.14: the server renders `h.*` tags, Datastar (`data.*`, `at.*`) sends
-commands and keeps pages live over SSE, litewriter keeps SQLite (stario 5.8, litewriter 0.3).
+commands and keeps pages live over SSE, litewriter keeps SQLite (stario 5.9, litewriter 0.3).
 The names are here or in a skill: never read `site-packages`.
 
 ## The loop

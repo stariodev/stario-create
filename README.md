@@ -19,7 +19,7 @@ uvx stario-create request GET /    # a request through TestClient, no server
 
 `new` gives you a tested, runnable app:
 
-- A uv project on Python 3.14 with `stario>=5.8,<6` and the dev tools.
+- A uv project on Python 3.14 with `stario>=5.9,<6` and the dev tools.
 - One file per concern: `app/urls.py` (every route), `app/data.py` (the tables and SQL, with `--db`), `app/layout.py` (the document and shared markup), and `app/pages/home.py`, one static page.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root, and `CLAUDE.md` with `@AGENTS.md`, so Claude Code loads the guide next to a project's own notes.
@@ -59,7 +59,7 @@ stario-create request POST /todos -j '{"title": "milk"}' GET /todos   # one clie
 
 `request` runs in the app's own venv on a fresh data dir, reads `.env`, and starts no server. `-j` sends a Datastar action (JSON signals), `-s` sends signals on a GET, `-d k=v` a plain form field, `-H k:v` a header.
 
-The lint rules: `attrs-after-children`, `classes-in-dict`, `time-unit` (`debounce=300` is 300 seconds), `redirect-status` (`w.redirect(url)` answers 307, which repeats a POST), `redirect-after-signals`, `order-by-param`, `module-state`, `env-outside-config`, `datastar-import`, `json-module`, `bare-task`, `sleep-loop`, `pkill`. `# stario: ok` on a line skips it.
+The lint rules: `classes-in-dict`, `time-unit` (`debounce=300` is 300 seconds), `redirect-status` (`w.redirect(url)` answers 307, which repeats a POST), `redirect-after-signals`, `order-by-param`, `module-state`, `env-outside-config`, `datastar-import`, `json-module`, `bare-task`, `sleep-loop`, `pkill`. `# stario: ok` on a line skips it.
 
 ## Syncing an app
 
@@ -131,7 +131,7 @@ rest in the seven skills above, and `sync` removes the old folders.
 ## Versions
 
 The major is the Stario major the kit targets: stario-create 5.x scaffolds apps on
-`stario>=5.8,<6`, and a Stario 6 brings stario-create 6.0. The minor moves with every release
+`stario>=5.9,<6`, and a Stario 6 brings stario-create 6.0. The minor moves with every release
 that changes what `new`, `add` or `sync` writes, or the guide and skills, including breaking
 kit changes; an existing app keeps its files until it runs `sync`, and each changelog entry says
 what `sync` changes. The patch is a CLI fix that leaves generated files as they are. Work in

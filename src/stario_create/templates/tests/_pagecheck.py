@@ -19,7 +19,8 @@ from stario import Route
 APP = Path(__file__).parent.parent / "app"
 LIMIT = 50
 
-ACTION = re.compile(r"@(get|post|put|patch|delete)\(\s*'([^']*)'")
+# A URL followed by `+` is the start of one built in the browser: '/leaders/' + $board.
+ACTION = re.compile(r"@(get|post|put|patch|delete)\(\s*'([^']*)'(\s*\+)?")
 SIGNAL = re.compile(r"\$([A-Za-z_]\w*)")
 ASSIGN = re.compile(r"\$([A-Za-z_]\w*)\s*=(?!=)")
 KEY = re.compile(r"['\"]([A-Za-z_]\w*)['\"]\s*:")
@@ -77,8 +78,10 @@ def problems(client, url: str, page: Page) -> list[str]:
                 ids.add(value)
             if not key.startswith("data-") or key.startswith("data-signals"):
                 continue
-            for method, target in ACTION.findall(value):
+            for method, target, built in ACTION.findall(value):
                 path = urlsplit(unescape(target)).path
+                if built:
+                    path += "x" if path.endswith("/") else ""  # a value for the last part
                 _, route, _ = client.app.find_handler("localhost", path, method.upper())
                 if route is Route.empty():
                     found.append(f"{url}: {method.upper()} {path} has no route")
