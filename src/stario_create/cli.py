@@ -26,11 +26,11 @@ from stario_create.scaffold import (
     ScaffoldError,
     app_name_for,
     check_name,
+    drop_claude_import,
     guide_above,
     notes_warning,
     scaffold_files,
     stale_files,
-    sync_claude,
     sync_cloud_env,
     sync_generated_tests,
     sync_guide,
@@ -140,7 +140,7 @@ def cmd_new(args: argparse.Namespace) -> int:
     agent_note = (
         f"\n  (no AGENTS.md or skills here: {os.path.relpath(above)} is the guide)"
         if above
-        else "\n  AGENTS.md CLAUDE.md .agents/skills/ .claude/skills/ .cursor/   the guide, skills"
+        else "\n  AGENTS.md .agents/skills/ .claude/skills/ .cursor/   the guide, skills"
     )
     print(f"\n{where}/ holds the files above and:")
     print(
@@ -205,8 +205,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
     changed: list[str] = []
     if sync_guide(root, force=args.force) is not None:
         changed.append("AGENTS.md")
-    if sync_claude(root) is not None:
-        changed.append("CLAUDE.md")
+    if (dropped := drop_claude_import(root)) is not None:
+        changed.append(dropped)
     changed += [str(Path(p).relative_to(root)) for p in sync_generated_tests(root)]
     changed += [str(Path(p).relative_to(root)) for p in sync_cloud_env(root)]
     changed += [

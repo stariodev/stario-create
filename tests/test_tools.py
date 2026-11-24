@@ -20,10 +20,10 @@ from stario_create.scaffold import (
     END,
     GENERATED_TESTS,
     ScaffoldError,
+    drop_claude_import,
     generated_text,
     scaffold_files,
     stale_files,
-    sync_claude,
     sync_generated_tests,
     sync_guide,
     sync_skill_files,
@@ -400,7 +400,7 @@ async def test_request_streams_and_commands():
     assert "error: ValueError: boom" in "\n".join(lines)
 
 
-# --- sync: references, CLAUDE.md, the marked guide, generated tests --------------------
+# --- sync: references, AGENTS.md only, the marked guide, generated tests --------------------
 
 
 def test_sync_copies_references_and_removes_old_ones(tmp_path: Path):
@@ -454,13 +454,17 @@ def test_sync_removes_the_skills_of_an_older_kit(tmp_path: Path, monkeypatch: py
     assert not link.is_symlink()
 
 
-def test_claude_md_imports_the_guide_and_keeps_its_own_text(tmp_path: Path):
-    assert sync_claude(tmp_path) is not None
-    assert (tmp_path / "CLAUDE.md").read_text() == "@AGENTS.md\n"
-    assert sync_claude(tmp_path) is None
-    (tmp_path / "CLAUDE.md").write_text("# Mine\n")
-    sync_claude(tmp_path)
-    assert (tmp_path / "CLAUDE.md").read_text() == "@AGENTS.md\n\n# Mine\n"
+def test_sync_removes_the_one_line_claude_md_and_keeps_one_with_notes(tmp_path: Path):
+    # Claude Code reads AGENTS.md: a CLAUDE.md that only imports it is noise.
+    claude = tmp_path / "CLAUDE.md"
+    assert drop_claude_import(tmp_path) is None
+    claude.write_text("@AGENTS.md\n")
+    assert drop_claude_import(tmp_path) == "removed CLAUDE.md"
+    assert not claude.exists()
+    claude.write_text("@AGENTS.md\n\n# Mine\n")
+    assert drop_claude_import(tmp_path) is None
+    assert claude.read_text() == "@AGENTS.md\n\n# Mine\n"
+    assert any(item.startswith("CLAUDE.md (move its notes") for item in stale_files(tmp_path))
 
 
 def test_sync_replaces_only_the_marked_part(tmp_path: Path):
@@ -508,7 +512,7 @@ def test_new_prints_the_files_to_edit(tmp_path: Path):
         assert f"==> {rel} <==" in out.stdout
     assert 'HOME = Route("GET /")' in out.stdout
     assert "uvx stario-create@latest check" in out.stdout
-    assert (tmp_path / "app/CLAUDE.md").read_text() == "@AGENTS.md\n"
+    assert not (tmp_path / "app/CLAUDE.md").exists()
 
 
 def test_cli_check_runs_every_step_and_names_the_failures(tmp_path: Path):

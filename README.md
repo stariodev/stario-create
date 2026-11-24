@@ -5,7 +5,7 @@ The project tool and agent guidance for building apps with [Stario](https://star
 Two things ship from here:
 
 - The `stario-create` CLI (`uvx stario-create`, or `uv tool install stario-create`). It scaffolds apps and keeps their guide and skills in sync.
-- The files it installs: `AGENTS.md` (the always-on guide an app keeps at its root, enough for a first page), `CLAUDE.md` (one line, `@AGENTS.md`), and `skills/<name>/SKILL.md` with its `references/` (on-demand procedures an agent loads when the task matches).
+- The files it installs: `AGENTS.md` (the always-on guide an app keeps at its root, enough for a first page; Claude Code, Codex and Cursor read it), and `skills/<name>/SKILL.md` with its `references/` (on-demand procedures an agent loads when the task matches).
 
 ## New app
 
@@ -22,7 +22,7 @@ uvx stario-create request GET /    # a request through TestClient, no server
 - A uv project on Python 3.14 with `stario>=5.9,<6` and the dev tools.
 - One file per concern: `app/urls.py` (every route), `app/data.py` (the tables and SQL, with `--db`), `app/layout.py` (the document and shared markup), and `app/pages/home.py`, one static page.
 - `static/js/datastar.js` vendored.
-- `AGENTS.md` at the app root, and `CLAUDE.md` with `@AGENTS.md`, so Claude Code loads the guide next to a project's own notes.
+- `AGENTS.md` at the app root: the one guide for every agent. No `CLAUDE.md`; `sync` removes the one-line `@AGENTS.md` file that 5.13 and 5.14 wrote.
 - The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - `tests/test_pages.py`: the page check that replaces a browser for HTML, and the Stario lint. Its code is in the generated `tests/_pagecheck.py` and `tests/_lint.py`, which `sync` refreshes. The page check skips a page whose outside service (an API, a Node server) is down.

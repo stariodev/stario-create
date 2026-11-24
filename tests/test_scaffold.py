@@ -42,7 +42,7 @@ def test_scaffold_files_compile(tmp_path: Path):
     assert "app/main.py" in {str(Path(p).relative_to(tmp_path)) for p in created}
     assert _compile_dir(tmp_path) == []
     assert (tmp_path / "AGENTS.md").read_text() == guide_text()
-    assert (tmp_path / "CLAUDE.md").read_text() == "@AGENTS.md\n"
+    assert not (tmp_path / "CLAUDE.md").exists()
     assert (tmp_path / "static/js/datastar.js").exists()
     gitignore = (tmp_path / ".gitignore").read_text().splitlines()
     assert "*.sqlite3*" in gitignore
